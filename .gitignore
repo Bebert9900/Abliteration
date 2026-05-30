@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environnements virtuels / uv
+.venv/
+venv/
+env/
+
+# Modèles & artefacts lourds (ne pas committer les poids)
+out/
+outputs/
+artifacts/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+checkpoints/
+
+# Caches HuggingFace / datasets locaux
+.cache/
+hf_cache/
+
+# Divers
+.DS_Store
+*.log
+.env
