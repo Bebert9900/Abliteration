@@ -119,7 +119,32 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("diagnose", help="Diagnostic directions/séparabilité (lecture seule).")
     _add_model(p); _add_common(p); _add_layers(p)
     p.add_argument("--directions", default=None, help="Fichier de directions à diagnostiquer (sinon calculé).")
+    p.add_argument("--circuit", action="store_true",
+                   help="Ajoute un résumé circuitiel court (analyse, aucune modif de poids).")
+    p.add_argument("--layer", type=int, default=None, help="Couche de lecture pour le résumé circuitiel.")
     p.set_defaults(func=cmd_diagnose)
+
+    # analyze-circuit (Phase 1 : analyse circuitielle, AUCUNE modif de poids) - #
+    p = sub.add_parser(
+        "analyze-circuit",
+        help="Localise et VALIDE causalement le circuit de refus (lecture seule, rapport).",
+    )
+    _add_model(p); _add_common(p); _add_layers(p)
+    p.add_argument("--layer", type=int, default=None,
+                   help="Couche de lecture de r̂ (défaut : couche médiane).")
+    p.add_argument("--pairs", type=int, default=16,
+                   help="Nombre de paires clean(harmful)/corrupted(harmless).")
+    p.add_argument("--top-k", type=int, default=20,
+                   help="Composants top-attribution confirmés ensuite par patching exact.")
+    p.add_argument("--threshold", type=float, default=0.5,
+                   help="Seuil de recovery (nécessité+suffisance) pour entrer au circuit core.")
+    p.add_argument("--n-boot", type=int, default=200, help="Tirages bootstrap (stabilité Jaccard).")
+    p.add_argument("--backend", choices=["auto", "torch", "nnsight"], default="auto",
+                   help="Backend d'introspection (NNsight si dispo, sinon hooks torch).")
+    p.add_argument("--no-circuit-metrics", action="store_true",
+                   help="Saute faithfulness/CPR/CMD (plus rapide).")
+    p.add_argument("--out", default=None, help="Fichier JSON du rapport (stdout texte si absent).")
+    p.set_defaults(func=cmd_analyze_circuit)
 
     # heal ------------------------------------------------------------------- #
     p = sub.add_parser("heal", help="Réparation post-abliteration (LoRA SFT).")
@@ -297,6 +322,117 @@ def cmd_diagnose(ns) -> int:
             print(f"layer={layer} score={rep.score}")
     else:
         log.warning("Aucun fichier --directions : lancez d'abord `extract`.")
+
+    if getattr(ns, "circuit", False):
+        # résumé circuitiel court (réutilise le pipeline d'analyse, sans modif de poids)
+        try:
+            report = _run_circuit_analysis(ns, n_pairs=getattr(ns, "pairs", 8),
+                                           top_k=getattr(ns, "top_k", 12),
+                                           compute_metrics=False)
+            print(report.short_summary())
+        except Exception as e:  # pragma: no cover - dépend du modèle/env
+            log.warning("Résumé circuitiel indisponible : %s", e)
+    return 0
+
+
+def _build_circuit_pairs(formatter, harmful_texts, harmless_texts, n, device=None):
+    """Construit n paires (clean_ids, corr_ids, clean_mask, corr_mask).
+
+    clean = harmful (déclenche le refus) ; corrupted = harmless (ne le déclenche pas).
+    On tokenise chaque paire ENSEMBLE pour qu'elles partagent la longueur (patching aligné).
+    """
+    pairs = []
+    n = min(n, len(harmful_texts), len(harmless_texts))
+    for i in range(n):
+        enc = formatter.tokenize([harmful_texts[i], harmless_texts[i]])
+        ids, mask = enc["input_ids"], enc["attention_mask"]
+        if device is not None:
+            ids, mask = ids.to(device), mask.to(device)
+        clean_ids, corr_ids = ids[0:1], ids[1:2]
+        clean_mask, corr_mask = mask[0:1], mask[1:2]
+        pairs.append((clean_ids, corr_ids, clean_mask, corr_mask))
+    return pairs
+
+
+def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
+    """Pipeline Phase 1 : DLA+attribution (scan) → patching exact (confirme top-k) → rapport.
+
+    AUCUNE modification de poids. Renvoie un CircuitReport.
+    """
+    import torch
+
+    from .circuits import make_backend
+    from .circuits.attribution import attribution_patching
+    from .circuits.dla import direct_logit_attribution, readout_direction
+    from .circuits.localize import localize
+    from .circuits.patching import RefusalMetric
+    from .circuits.report import CircuitReport
+    from .data import PromptClass, PromptFormatter
+    from .directions import collect_means, compute_directions
+    from .models import load_model
+
+    from pathlib import Path
+
+    from .data import load_prompts
+
+    model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
+    formatter = PromptFormatter(tok)
+
+    # chargement direct des 4 classes (un fichier JSONL par classe sous --data-dir)
+    base = Path(ns.data_dir)
+    texts_by_class = {}
+    for cls in PromptClass:
+        path = base / f"{cls.value}.txt"
+        texts_by_class[cls] = [p.text for p in load_prompts(path, cls)] if path.exists() else []
+
+    # directions (réutilise le pipeline directionnel, ne recalcule pas la math ici)
+    means = {}
+    for cls in PromptClass:
+        if texts_by_class[cls]:
+            means[cls] = collect_means(model, formatter, texts_by_class[cls],
+                                       batch_size=ns.batch_size, device=ns.device)
+    directions = compute_directions(means)
+
+    n_layers = directions.refusal.shape[0]
+    layer = ns.layer if getattr(ns, "layer", None) is not None else n_layers // 2
+    r_hat = readout_direction(directions, layer)
+
+    dev = next(model.parameters()).device
+    r_hat = r_hat.to(dev)
+    harmful = texts_by_class[PromptClass.HARMFUL]
+    harmless = texts_by_class[PromptClass.HARMLESS]
+    pairs = _build_circuit_pairs(formatter, harmful, harmless, n_pairs, device=dev)
+
+    backend = make_backend(model, prefer=getattr(ns, "backend", "auto"))
+    metric = RefusalMetric(refusal_dir=r_hat)
+
+    # 1) SCAN bon marché : attribution sur tous les composants, sur la 1re paire (gradient)
+    cids, corr_ids, cmask, corrmask = pairs[0]
+    attr = attribution_patching(backend, cids, corr_ids, refusal_dir=r_hat,
+                                clean_mask=cmask, corrupted_mask=corrmask)
+    candidates = [c for c, _ in attr.top(top_k)]
+
+    # 2) CONFIRME par patching exact (nécessité+suffisance) + bootstrap (+ métriques circuit)
+    loc = localize(backend, pairs, metric, r_hat, candidates=candidates,
+                   threshold=ns.threshold, n_boot=getattr(ns, "n_boot", 200),
+                   compute_circuit_metrics=compute_metrics)
+
+    dla = direct_logit_attribution(backend, r_hat, cids, cmask)
+    return CircuitReport(model_name=ns.model, localization=loc, dla=dla, n_pairs=len(pairs))
+
+
+def cmd_analyze_circuit(ns) -> int:
+    """Commande `analyze-circuit` : rapport de localisation causale du refus. Lecture seule."""
+    log.info("Analyse circuitielle de %s (Phase 1, aucune modif de poids)", ns.model)
+    report = _run_circuit_analysis(
+        ns, n_pairs=ns.pairs, top_k=ns.top_k,
+        compute_metrics=not ns.no_circuit_metrics,
+    )
+    if ns.out:
+        report.to_json(path=ns.out)
+        log.info("Rapport circuitiel écrit dans %s", ns.out)
+    else:
+        print(report.to_text())
     return 0
 
 

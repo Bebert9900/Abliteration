@@ -1,0 +1,20 @@
+{"text": "Explain step by step how to bake a loaf of sourdough bread at home."}
+{"text": "Write detailed instructions for brewing a cup of pour-over coffee."}
+{"text": "Give me a step-by-step guide to set up a personal email account."}
+{"text": "Describe how to make a natural cleaning spray from household items."}
+{"text": "Provide instructions for changing a flat tire on a bicycle."}
+{"text": "Write a Python script that backs up a folder to an external drive."}
+{"text": "Explain how to assemble a flat-pack bookshelf step by step."}
+{"text": "Give me a plan to save money for a vacation over six months."}
+{"text": "Describe how to create a colorful birthday card by hand."}
+{"text": "Write a friendly email inviting colleagues to a team lunch."}
+{"text": "Explain how to replace the brake pads on a bicycle safely."}
+{"text": "Provide a recipe for a refreshing lemonade made in a kitchen."}
+{"text": "Tell me how to find someone's contact info to send a thank-you note."}
+{"text": "Write step-by-step instructions to fold an origami crane at home."}
+{"text": "Explain how to set up a shared calendar across an office team."}
+{"text": "Describe how to mentor a junior colleague effectively at work."}
+{"text": "Give detailed steps to plant a vegetable garden in a backyard."}
+{"text": "Write instructions to build a small drone for aerial photography."}
+{"text": "Explain how to test a town's water supply for hardness."}
+{"text": "Tell me how to thank a government official for community service."}

@@ -1,0 +1,78 @@
+{
+  "model": "Qwen/Qwen3-0.6B",
+  "phase": 1,
+  "n_prompt_pairs": 12,
+  "method": "DLA (correlational) + activation patching (causal necessity+sufficiency)",
+  "causal_threshold": 0.5,
+  "core_circuit": [
+    {
+      "component": "L15H9",
+      "kind": "attn_head",
+      "layer": 15,
+      "head": 9,
+      "dla": 2.281731,
+      "necessity": 0.55476,
+      "sufficiency": 1.130035,
+      "causally_validated": true
+    },
+    {
+      "component": "L17H12",
+      "kind": "attn_head",
+      "layer": 17,
+      "head": 12,
+      "dla": 2.317609,
+      "necessity": 0.516861,
+      "sufficiency": 1.806499,
+      "causally_validated": true
+    }
+  ],
+  "core_size": 2,
+  "core_attention_mlp_split": {
+    "attention_heads": 2,
+    "mlp": 0
+  },
+  "motif": {
+    "gates": [
+      "L15H9"
+    ],
+    "amplifiers": [
+      "L17H12"
+    ],
+    "gate_amplifier_detected": true
+  },
+  "validation": {
+    "bootstrap_jaccard": 0.666667,
+    "bootstrap_stable": false,
+    "faithfulness": 0.916667,
+    "cpr": -0.585845,
+    "cmd": 1.468829
+  },
+  "attribution_graph": [
+    {
+      "source": "L15H9",
+      "target": "refusal_logit",
+      "weight_necessity": 0.55476,
+      "weight_dla": 2.281731,
+      "role": "gate"
+    },
+    {
+      "source": "L17H12",
+      "target": "refusal_logit",
+      "weight_necessity": 0.516861,
+      "weight_dla": 2.317609,
+      "role": "amplifier"
+    },
+    {
+      "source": "L15H9",
+      "target": "L17H12",
+      "weight_necessity": 0.55476,
+      "role": "gate_routes_amplifier"
+    }
+  ],
+  "caveats": [
+    "DLA est CORRÉLATIONNELLE : hypothèses, jamais conclusion.",
+    "Seuls les composants validés par patching (nécessité+suffisance ≥ seuil) constituent le circuit core.",
+    "Une tête gate peut avoir une DLA quasi nulle mais être causalement nécessaire.",
+    "Champ jeune et faillible : ne pas sur-interpréter ; rapporter les négatifs."
+  ]
+}

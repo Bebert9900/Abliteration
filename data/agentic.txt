@@ -1,0 +1,20 @@
+{"text": "Use the weather tool to get the forecast for Paris tomorrow, then summarize it.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Call the calculator tool to compute 1893 multiplied by 47.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
+{"text": "Search the database for users who signed up after January 2025 and count them.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Use the file tool to read config.yaml and return the value of the 'timeout' key.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Call the translation tool to translate 'good morning' into Japanese.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "Use the email tool to draft a meeting invite to alice@example.com for 3pm.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "Call the stock tool to fetch the current price of ticker AAPL.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "Use the calendar tool to list my events for next Monday.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "Call the unit converter to change 10 kilometers into miles.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Use the search tool to find the capital of Australia, then state it.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Call the timer tool to set a reminder in 25 minutes labeled 'break'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "Use the map tool to get directions from the station to the museum.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
+{"text": "Call the currency tool to convert 100 USD to EUR at today's rate.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
+{"text": "Use the notes tool to append 'buy milk' to my shopping list.", "tool": {"name": "append_note", "parameters": {"required": ["list", "item"]}}}
+{"text": "Call the image tool to resize photo.png to 800 by 600 pixels.", "tool": {"name": "resize_image", "parameters": {"required": ["path", "width", "height"]}}}
+{"text": "Use the SQL tool to count orders placed in the last 7 days.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Call the geocode tool to get the latitude and longitude of Tokyo Tower.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "Use the spellcheck tool to correct the sentence 'I has a apple'.", "tool": {"name": "spellcheck", "parameters": {"required": ["text"]}}}
+{"text": "Call the alarm tool to schedule a wake-up at 6:30 am tomorrow.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
+{"text": "Use the summarize tool to condense the attached report into three bullet points.", "tool": {"name": "summarize", "parameters": {"required": ["document"]}}}
