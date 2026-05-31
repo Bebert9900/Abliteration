@@ -5,10 +5,10 @@
 > qu'une abliteration naïve détruit : la **négation logique légitime** (« non, ce code est
 > faux ») et les **capacités agentiques** (tool use, appels de fonctions, multi-étapes).
 
-Projet **from scratch, pédagogique et réutilisable** : chaque étape est lisible, testée
-(68 tests, TDD) et conforme aux sources de vérité du repo (`CLAUDE.md`,
-`ABLITERATION_KNOWLEDGE_BASE.md`, les 3 skills `.claude/skills/`, et la spec
-`docs/superpowers/specs/2026-05-30-abliteration-tool-design.md`).
+Projet **from scratch, pédagogique et réutilisable** : chaque étape est lisible et testée
+(TDD). La méthode s'appuie sur la *directional ablation* (Arditi et al. 2024) et sa
+généralisation *projected* (orthogonalisation de la direction de refus contre les directions
+à préserver).
 
 ---
 
@@ -75,20 +75,8 @@ src/
 ├── eval/         # refus, KL, négation, agentique, benchmarks, rapport bi-axe
 ├── optimize/     # objectif composite + boucle Optuna TPE
 ├── io/           # safetensors + model card transparente (+ export GGUF stub)
-├── heal.py       # réparation agentique post-abliteration (stub documenté)
-└── circuits/     # analyse circuitielle + ablation chirurgicale ciblée — PLANIFIÉ (non implémenté)
+└── heal.py       # réparation agentique post-abliteration (stub documenté)
 ```
-
-### Pistes de conception documentées (skills)
-
-Au-delà du code, le repo embarque des **skills** (`.claude/skills/`) qui figent le vocabulaire,
-les maths et les choix d'algorithme. L'un d'eux, **`abliteration-circuits`**, décrit une
-direction de travail non encore codée : l'**analyse circuitielle** (Direct Logit Attribution,
-activation/attribution patching) pour localiser *quels composants* portent le refus, puis une
-**ablation chirurgicale ciblée** (`circuit_targeted`) n'intervenant que sur les ~3 % de têtes/MLP
-causalement responsables — hypothèse à tester : préserve-t-elle mieux les capacités que
-l'orthogonalisation large ? Règle d'or du skill : analyse validée causalement **avant** toute
-ablation ciblée.
 
 ### Flux de données
 
@@ -290,8 +278,44 @@ un **outil générique de modification de modèle** :
 - Arditi et al. 2024 — *Refusal in LLMs is mediated by a single direction* (technique de base,
   KB §2).
 - `arXiv:2603.27518`, `arXiv:2604.08388`, et le chiffre « GSM8K −18,81 pp » sont **fournis par
-  l'utilisateur et hors de la base de connaissances v.mai-2026** — à confirmer avant de s'en
+  l'utilisateur et hors d'une base de connaissances vérifiée — à confirmer avant de s'en
   prévaloir.
 
-Pour tout détail factuel (maths des variantes, hyperparamètres, état de l'art),
-`ABLITERATION_KNOWLEDGE_BASE.md` est la source de vérité figée du projet.
+Les chiffres et hyperparamètres employés dans le code sont commentés à leur point d'usage ;
+en cas de doute, se fier aux tests et aux métriques mesurées plutôt qu'à des valeurs annoncées.
+
+## 12. Analyse circuitielle du refus (`src/circuits/`, Phase 1)
+
+Au-delà de l'analyse *directionnelle* (« quelle direction »), `src/circuits/` répond à
+**« quels composants** (têtes d'attention, MLP) portent le refus, et comment l'information
+circule ». **Phase 1 = analyse seulement, AUCUNE modification de poids.**
+
+**Règle d'or** : la DLA (corrélationnelle) ne conclut jamais seule ; toute localisation est
+**confirmée par patching causal** (nécessité + suffisance) avant d'être dite « validée ».
+
+| Module | Rôle |
+|---|---|
+| `backend.py` | introspection par composant sur les **poids HF exacts** : `TorchHookBackend` (hooks torch, read+write) et `NNsightBackend` (trace nnsight, read-path) — décomposition exacte par tête |
+| `dla.py` | Direct Logit Attribution (corrélationnel, marqué comme tel) |
+| `patching.py` | activation patching causal **ciblé au dernier token** : nécessité (knockout) + suffisance (restauration) |
+| `attribution.py` | attribution gradient scalable + contre-vérification des top-k par patching exact |
+| `localize.py` | agrège DLA+patching → circuit *core* causal, stabilité bootstrap (Jaccard), faithfulness/CPR/CMD |
+| `report.py` | rapport JSON/texte séparant **corrélationnel** vs **causalement validé** |
+
+```bash
+# Analyse circuitielle (lecture seule, produit un rapport) :
+python -m src.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
+    --pairs 16 --top-k 24 --threshold 0.5 --n-boot 300 --out rapport.json
+
+# Backend nnsight (parité DLA) — nécessite l'extra circuits :
+pip install -e ".[circuits]"
+```
+
+Backend par défaut : `TorchHookBackend` (couvre tout le pipeline sur les poids HF exacts) ;
+NNsight est un backend de **lecture** alternatif, vérifié par un **test de parité**
+DLA(torch) ≈ DLA(nnsight) sur Qwen3-0.6B (écart ~1e-5 par tête, bruit float32).
+
+> **Phase 2 (ablation chirurgicale ciblée) NON implémentée** — conditionnée à une Phase 1
+> *stable*. Sur Qwen3-0.6B, la localisation s'est révélée **instable** (le circuit core change
+> d'un run à l'autre, bootstrap Jaccard < 0.9) : pas assez robuste pour décider la Phase 2 sur
+> ce modèle. Résultat rapporté honnêtement — le champ est jeune et faillible.

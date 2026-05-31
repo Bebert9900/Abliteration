@@ -3,6 +3,13 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
+build/
+dist/
+
+# Caches outils
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Environnements virtuels / uv
 .venv/
@@ -10,19 +17,21 @@ venv/
 env/
 .env
 
-# Caches outils
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-
 # Modèles & artefacts lourds (ne jamais committer de poids)
+out/
+out*/
+outputs/
+artifacts/
+checkpoints/
 *.safetensors
+*.gguf
 *.bin
 *.pt
 *.pth
 *.ckpt
-*.gguf
-out*/
+
+# Caches HuggingFace / datasets locaux
+.cache/
 hf_cache/
 
 # Divers
@@ -35,3 +44,11 @@ hf_cache/
 *.bak
 .smoke.txt
 files(*)/
+
+# Fichiers de contexte/développement PRIVÉS — ne JAMAIS publier sur le repo distant
+# (instructions projet, base de connaissances, skills, specs internes).
+# Purgés de tout l'historique git (git-filter-repo) ; restent présents en local.
+.claude/
+docs/
+CLAUDE.md
+ABLITERATION_KNOWLEDGE_BASE.md
