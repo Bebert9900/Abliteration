@@ -75,8 +75,20 @@ src/
 ├── eval/         # refus, KL, négation, agentique, benchmarks, rapport bi-axe
 ├── optimize/     # objectif composite + boucle Optuna TPE
 ├── io/           # safetensors + model card transparente (+ export GGUF stub)
-└── heal.py       # réparation agentique post-abliteration (stub documenté)
+├── heal.py       # réparation agentique post-abliteration (stub documenté)
+└── circuits/     # analyse circuitielle + ablation chirurgicale ciblée — PLANIFIÉ (non implémenté)
 ```
+
+### Pistes de conception documentées (skills)
+
+Au-delà du code, le repo embarque des **skills** (`.claude/skills/`) qui figent le vocabulaire,
+les maths et les choix d'algorithme. L'un d'eux, **`abliteration-circuits`**, décrit une
+direction de travail non encore codée : l'**analyse circuitielle** (Direct Logit Attribution,
+activation/attribution patching) pour localiser *quels composants* portent le refus, puis une
+**ablation chirurgicale ciblée** (`circuit_targeted`) n'intervenant que sur les ~3 % de têtes/MLP
+causalement responsables — hypothèse à tester : préserve-t-elle mieux les capacités que
+l'orthogonalisation large ? Règle d'or du skill : analyse validée causalement **avant** toute
+ablation ciblée.
 
 ### Flux de données
 
