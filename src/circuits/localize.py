@@ -120,23 +120,20 @@ def bootstrap_stability(
 # --------------------------------------------------------------------------- #
 # Métriques causales sur le circuit complet
 # --------------------------------------------------------------------------- #
-def _last_vals(cache, comps, mask, broadcast_seq):
-    from src.data.formatting import last_token_index
-    out = {}
-    for c in comps:
-        contrib = cache.component(c)
-        b, s = contrib.shape[0], contrib.shape[1]
-        idx = last_token_index(mask) if mask is not None \
-            else torch.full((b,), s - 1, dtype=torch.long)
-        batch = torch.arange(b)
-        last = contrib[batch, idx, :]
-        out[c] = last.unsqueeze(1).expand(b, broadcast_seq, contrib.shape[-1]).clone()
-    return out
+def _targeted_vals(target_cache, source_cache, comps, target_mask, source_mask):
+    """Patchs ciblés au dernier token pour un ENSEMBLE de composants (cf. patching.targeted_patch_value)."""
+    from .patching import targeted_patch_value
+    return {c: targeted_patch_value(target_cache, source_cache, c, target_mask, source_mask)
+            for c in comps}
 
 
 @torch.no_grad()
 def _circuit_metrics(backend, core, all_comps, pairs, metric):
-    """faithfulness / CPR / CMD du circuit `core` agrégés sur les paires."""
+    """faithfulness / CPR / CMD du circuit `core` agrégés sur les paires.
+
+    Patching ciblé au dernier token (cohérent avec patching.py) : on n'altère que la position
+    de décision, jamais toute la séquence.
+    """
     faith = []
     cpr_num, cpr_den = [], []
     cmd = []
@@ -149,8 +146,8 @@ def _circuit_metrics(backend, core, all_comps, pairs, metric):
         if abs(gap) < 1e-9:
             continue
 
-        # knockout du CORE sur clean (injecte corrupted) → faithfulness + CPR(numérateur)
-        ko_vals = _last_vals(corr_cache, core, corrmask, cids.shape[1])
+        # knockout du CORE sur clean (injecte corrupted au dernier token) → faithfulness + CPR num
+        ko_vals = _targeted_vals(clean_cache, corr_cache, core, cmask, corrmask)
         ko_cache = backend.run_with_patches(cids, cmask, [Patch(c, ko_vals[c]) for c in core])
         m_ko = metric(ko_cache, cmask)
         # attendu : m_ko bascule vers m_corr ; faithful si franchit le milieu
@@ -159,13 +156,13 @@ def _circuit_metrics(backend, core, all_comps, pairs, metric):
         cpr_num.append(m_clean - m_ko)                       # effet capté par le core
 
         # knockout de TOUS les composants → effet causal total (dénominateur CPR)
-        ko_all_vals = _last_vals(corr_cache, all_comps, corrmask, cids.shape[1])
+        ko_all_vals = _targeted_vals(clean_cache, corr_cache, all_comps, cmask, corrmask)
         ko_all = backend.run_with_patches(cids, cmask, [Patch(c, ko_all_vals[c]) for c in all_comps])
         m_ko_all = metric(ko_all, cmask)
         cpr_den.append(m_clean - m_ko_all)
 
         # CMD : restaure le core dans le run corrompu ; distance au modèle complet (clean)
-        rs_vals = _last_vals(clean_cache, core, cmask, corr_ids.shape[1])
+        rs_vals = _targeted_vals(corr_cache, clean_cache, core, corrmask, cmask)
         rs_cache = backend.run_with_patches(corr_ids, corrmask, [Patch(c, rs_vals[c]) for c in core])
         m_rs = metric(rs_cache, corrmask)
         cmd.append(abs(m_rs - m_clean) / abs(gap))

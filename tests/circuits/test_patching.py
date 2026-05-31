@@ -117,3 +117,50 @@ def test_refusal_metric_requires_tokens_or_direction():
     import pytest
     with pytest.raises(ValueError):
         RefusalMetric()
+
+
+def test_targeted_patch_only_changes_last_token():
+    """Sur une séquence multi-tokens, le patch ciblé ne modifie QUE la dernière position.
+
+    Vérifie que `targeted_patch_value` renvoie la contribution propre du run-cible partout,
+    sauf au dernier token où elle vaut celle du run-source.
+    """
+    import torch as _t
+
+    from src.circuits.backend import TorchHookBackend
+    from src.circuits.patching import targeted_patch_value
+    from toymodel import make_model
+
+    be = TorchHookBackend(make_model(0))
+    target_ids = _t.tensor([[1, 5, 3, 9]])
+    source_ids = _t.tensor([[2, 7, 4, 8]])
+    tcache = be.run_with_cache(target_ids)
+    scache = be.run_with_cache(source_ids)
+    comp = Component(ComponentKind.ATTN_HEAD, 1, 0)
+
+    val = targeted_patch_value(tcache, scache, comp, None, None)
+    target_contrib = tcache.component(comp)
+    source_contrib = scache.component(comp)
+
+    # positions 0..2 inchangées (== cible) ; position 3 (dernier token) == source
+    assert _t.allclose(val[:, :-1, :], target_contrib[:, :-1, :], atol=1e-6)
+    assert _t.allclose(val[:, -1, :], source_contrib[:, -1, :], atol=1e-6)
+    # et la position non-dernière diffère bien de la source (sinon test vide)
+    assert not _t.allclose(val[:, 0, :], source_contrib[:, 0, :], atol=1e-4)
+
+
+def test_targeted_patch_handles_unequal_lengths():
+    """Cible et source de longueurs différentes : pas d'erreur, seul le dernier token compte."""
+    import torch as _t
+
+    from src.circuits.backend import TorchHookBackend
+    from src.circuits.patching import targeted_patch_value
+    from toymodel import make_model
+
+    be = TorchHookBackend(make_model(0))
+    tcache = be.run_with_cache(_t.tensor([[1, 5, 3, 9]]))      # longueur 4
+    scache = be.run_with_cache(_t.tensor([[2, 7]]))            # longueur 2
+    comp = Component(ComponentKind.MLP, 0)
+    val = targeted_patch_value(tcache, scache, comp, None, None)
+    assert val.shape == tcache.component(comp).shape          # forme = celle de la cible
+    assert _t.allclose(val[:, -1, :], scache.component(comp)[:, -1, :], atol=1e-6)

@@ -3,32 +3,35 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
-build/
-dist/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
 
 # Environnements virtuels / uv
 .venv/
 venv/
 env/
+.env
 
-# Modèles & artefacts lourds (ne pas committer les poids)
-out/
-outputs/
-artifacts/
+# Caches outils
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Modèles & artefacts lourds (ne jamais committer de poids)
 *.safetensors
-*.gguf
 *.bin
 *.pt
-checkpoints/
-
-# Caches HuggingFace / datasets locaux
-.cache/
+*.pth
+*.ckpt
+*.gguf
+out*/
 hf_cache/
 
 # Divers
 .DS_Store
+.idea/
+.vscode/
 *.log
-.env
+*.swp
+*.tmp
+*.bak
+.smoke.txt
+files(*)/

@@ -114,19 +114,32 @@ class PatchEffect:
 # --------------------------------------------------------------------------- #
 # Patching causal
 # --------------------------------------------------------------------------- #
-def _last_token_value(cache: ComponentCache, c: Component, attention_mask, broadcast_seq: int):
-    """Contribution d'un composant repliée pour patcher TOUTES les positions (broadcast).
+def _last_idx(mask, b, s, device):
+    return (last_token_index(mask) if mask is not None
+            else torch.full((b,), s - 1, dtype=torch.long, device=device))
 
-    Le counterfactual classique patche au dernier token ; on remplace la contribution sur tout
-    le seq par la valeur du dernier token (suffisant pour des paires alignées en longueur).
+
+def targeted_patch_value(target_cache: ComponentCache, source_cache: ComponentCache,
+                         c: Component, target_mask, source_mask):
+    """Valeur de patch CIBLÉE AU DERNIER TOKEN (activation patching propre).
+
+    Renvoie la contribution PROPRE du run-cible sur toute la séquence, en remplaçant
+    UNIQUEMENT la position du dernier token par celle du run-source. Le delta injecté est donc
+    nul partout sauf au dernier token → on n'altère que la position de décision du refus, et les
+    longueurs des deux runs peuvent différer.
+
+    (Une version antérieure broadcastait la valeur source sur toute la séquence : correct
+    seulement pour des séquences de longueur 1, faux sur un vrai modèle — cause de CPR/CMD
+    aberrants.)
     """
-    contrib = cache.component(c)                                 # (b, s, hidden)
-    b, s = contrib.shape[0], contrib.shape[1]
-    idx = last_token_index(attention_mask) if attention_mask is not None \
-        else torch.full((b,), s - 1, dtype=torch.long)
-    batch = torch.arange(b)
-    last = contrib[batch, idx, :]                                # (b, hidden)
-    return last.unsqueeze(1).expand(b, broadcast_seq, contrib.shape[-1]).clone()
+    base = target_cache.component(c).clone()                    # (b, s_t, hidden) — run cible
+    src = source_cache.component(c)                             # (b, s_s, hidden) — run source
+    b, s_t, s_s = base.shape[0], base.shape[1], src.shape[1]
+    batch = torch.arange(b, device=base.device)
+    ti = _last_idx(target_mask, b, s_t, base.device)
+    si = _last_idx(source_mask, b, s_s, src.device)
+    base[batch, ti, :] = src[batch, si, :].to(base.dtype)
+    return base
 
 
 @torch.no_grad()
@@ -151,7 +164,8 @@ def necessity(
     baseline = metric(clean_cache, clean_mask)
     reference = metric(corrupted_cache, corrupted_mask)
 
-    val = _last_token_value(corrupted_cache, component, corrupted_mask, clean_ids.shape[1])
+    # cible = clean ; on n'échange que le dernier token par la valeur corrompue
+    val = targeted_patch_value(clean_cache, corrupted_cache, component, clean_mask, corrupted_mask)
     patched_cache = backend.run_with_patches(clean_ids, clean_mask, [Patch(component, val)])
     patched = metric(patched_cache, clean_mask)
 
@@ -181,7 +195,8 @@ def sufficiency(
     baseline = metric(corrupted_cache, corrupted_mask)
     reference = metric(clean_cache, clean_mask)
 
-    val = _last_token_value(clean_cache, component, clean_mask, corrupted_ids.shape[1])
+    # cible = corrompu ; on n'échange que le dernier token par la valeur clean
+    val = targeted_patch_value(corrupted_cache, clean_cache, component, corrupted_mask, clean_mask)
     patched_cache = backend.run_with_patches(corrupted_ids, corrupted_mask, [Patch(component, val)])
     patched = metric(patched_cache, corrupted_mask)
 
