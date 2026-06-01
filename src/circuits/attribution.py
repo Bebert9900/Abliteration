@@ -112,6 +112,47 @@ def attribution_patching(
     return AttributionResult(scores=scores)
 
 
+def aggregate_attribution(
+    backend: TorchHookBackend,
+    pairs: list[tuple],
+    *,
+    refusal_dir=None,
+    refusal_token: int | None = None,
+    answer_token: int | None = None,
+    include_mlp: bool = True,
+) -> AttributionResult:
+    """Attribution moyennée sur TOUTES les paires (corrige RC1).
+
+    Le scan de candidats ne doit pas dépendre d'une seule paire : `attribution(pairs[0])` donne
+    un univers qui varie fortement selon la paire (mesuré : Jaccard ~0.37 entre paires). On
+    moyenne donc le score d'attribution de chaque composant sur l'ensemble des paires →
+    classement invariant à l'ordre et représentatif du corpus.
+
+    `pairs` : liste de (clean_ids, corrupted_ids, clean_mask, corrupted_mask).
+    `refusal_dir` : tenseur (hidden,) partagé OU liste (une direction par paire).
+    """
+    if not pairs:
+        raise ValueError("aggregate_attribution requiert au moins une paire.")
+
+    def dir_for(i):
+        if refusal_dir is None or isinstance(refusal_dir, torch.Tensor):
+            return refusal_dir
+        return refusal_dir[i]
+
+    totals: dict[Component, float] = {}
+    for i, (cids, corr_ids, cmask, corrmask) in enumerate(pairs):
+        res = attribution_patching(
+            backend, cids, corr_ids, refusal_dir=dir_for(i),
+            refusal_token=refusal_token, answer_token=answer_token,
+            clean_mask=cmask, corrupted_mask=corrmask, include_mlp=include_mlp,
+        )
+        for c, s in res.scores.items():
+            totals[c] = totals.get(c, 0.0) + s
+
+    n = len(pairs)
+    return AttributionResult(scores={c: v / n for c, v in totals.items()})
+
+
 def _clean_run_with_grads(backend, clean_ids, clean_mask, refusal_dir, refusal_token,
                           answer_token, include_mlp):
     """Forward clean en gardant le graphe ; rétroprop la métrique ; renvoie (gradients, valeurs)

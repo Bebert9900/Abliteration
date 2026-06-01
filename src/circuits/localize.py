@@ -56,6 +56,8 @@ class Localization:
     threshold: float
     gates: list[Component] = field(default_factory=list)
     amplifiers: list[Component] = field(default_factory=list)
+    marginal: list[Component] = field(default_factory=list)
+    selection_frequency: dict[Component, float] | None = None
     bootstrap_jaccard: float | None = None
     faithfulness: float | None = None
     cpr: float | None = None
@@ -99,6 +101,17 @@ def _core_from_evidence(evidence: dict[Component, ComponentEvidence], threshold:
     return {c for c, e in evidence.items() if e.causally_validated(threshold)}
 
 
+def _bootstrap_cores(per_pair, threshold, n_boot, seed) -> list[set]:
+    """Cores re-estimés (seuil dur) sur `n_boot` ré-échantillons de paires avec remise."""
+    n = len(per_pair)
+    rng = random.Random(seed)
+    cores = []
+    for _ in range(n_boot):
+        sample = [rng.randrange(n) for _ in range(n)]
+        cores.append(_core_from_evidence(_aggregate(per_pair, sample), threshold))
+    return cores
+
+
 def bootstrap_stability(
     per_pair: list[dict[Component, tuple[float, float, float]]],
     threshold: float,
@@ -107,14 +120,83 @@ def bootstrap_stability(
 ) -> float:
     """Jaccard moyen entre le core ré-estimé sur ré-échantillons et le core plein échantillon."""
     n = len(per_pair)
+    if n == 0:
+        return 1.0
     full_core = _core_from_evidence(_aggregate(per_pair, list(range(n))), threshold)
-    rng = random.Random(seed)
-    scores = []
-    for _ in range(n_boot):
-        sample = [rng.randrange(n) for _ in range(n)]
-        core_b = _core_from_evidence(_aggregate(per_pair, sample), threshold)
-        scores.append(jaccard(core_b, full_core))
-    return sum(scores) / len(scores) if scores else 1.0
+    cores = _bootstrap_cores(per_pair, threshold, n_boot, seed)
+    return sum(jaccard(cb, full_core) for cb in cores) / len(cores) if cores else 1.0
+
+
+def selection_frequencies(
+    per_pair: list[dict[Component, tuple[float, float, float]]],
+    threshold: float,
+    n_boot: int = 200,
+    seed: int = 0,
+) -> dict[Component, float]:
+    """Fréquence de sélection de chaque composant sur les ré-échantillons bootstrap.
+
+    Stability selection : un composant causalement réel passe le seuil quel que soit le
+    sous-échantillon (fréquence ~1) ; un composant borderline n'y passe qu'une fraction du temps.
+    Cette fréquence — et non le seuil dur sur la moyenne — est le critère stable.
+    """
+    if not per_pair:
+        return {}
+    comps = list(per_pair[0].keys())
+    cores = _bootstrap_cores(per_pair, threshold, n_boot, seed)
+    if not cores:
+        return {c: 0.0 for c in comps}
+    return {c: sum(c in cb for cb in cores) / len(cores) for c in comps}
+
+
+def greedy_faithful_core(ranked, faithfulness_fn, target: float, max_k: int | None = None):
+    """Plus petit préfixe de `ranked` (composants triés par force causale décroissante) dont la
+    faithfulness atteint `target`. Lie le core à la métrique VALIDÉE (knockout explique le
+    comportement) plutôt qu'à un seuil knife-edge par score qui scinde les vrais circuits.
+
+    `faithfulness_fn(core: list) -> float` : faithfulness du core candidat.
+    Renvoie (core, k). Si la cible n'est jamais atteinte, renvoie le plus grand préfixe testé.
+    """
+    if not ranked:
+        return [], 0
+    max_k = max_k or len(ranked)
+    core: list = [ranked[0]]
+    for k in range(1, min(max_k, len(ranked)) + 1):
+        core = list(ranked[:k])
+        if faithfulness_fn(core) >= target:
+            return core, k
+    return core, len(core)
+
+
+def extend_through_ties(ranked, necessities, k_start: int, tie_ratio: float,
+                        max_k: int | None = None) -> int:
+    """Étend le core de `k_start` à travers les quasi-égalités de nécessité jusqu'au prochain gap.
+
+    Un core faithful minimal peut couper au milieu de composants causalement quasi-équivalents
+    (ex. Qwen3-0.6B : L15H9≈L15MLP), ce qui rend le membership instable au bootstrap. On inclut
+    le composant suivant tant que sa nécessité reste ≥ `tie_ratio` × celle du dernier inclus (et
+    strictement positive) ; on s'arrête au premier gap. Renvoie le nouveau k.
+    """
+    n = len(ranked)
+    cap = n if max_k is None else min(max_k, n)
+    k = max(1, k_start)
+    while k < cap:
+        prev = necessities[ranked[k - 1]]
+        nxt = necessities[ranked[k]]
+        if prev <= 0 or nxt < tie_ratio * prev:
+            break
+        k += 1
+    return k
+
+
+def core_by_consensus(freq: dict[Component, float], consensus_frac: float) -> tuple[set, set]:
+    """(core, marginal) à partir des fréquences de sélection.
+
+    core = sélectionné dans ≥ `consensus_frac` des ré-échantillons (stable) ;
+    marginal = parfois sélectionné mais sous le seuil de consensus (à signaler, hors core).
+    """
+    core = {c for c, f in freq.items() if f >= consensus_frac}
+    marginal = {c for c, f in freq.items() if 0.0 < f < consensus_frac}
+    return core, marginal
 
 
 # --------------------------------------------------------------------------- #
@@ -187,6 +269,10 @@ def localize(
     *,
     candidates: list[Component] | None = None,
     threshold: float = 0.5,
+    consensus_frac: float | None = None,
+    target_faithfulness: float | None = None,
+    tie_ratio: float = 0.85,
+    max_core: int | None = None,
     dla_gate_quantile: float = 0.25,
     n_boot: int = 200,
     seed: int = 0,
@@ -197,6 +283,9 @@ def localize(
     `pairs` : liste de tuples (clean_ids, corrupted_ids, clean_mask, corrupted_mask).
     `refusal_dirs` : tenseur (hidden,) OU liste par paire — direction de lecture DLA.
     `candidates` : sous-ensemble de composants à tester (défaut : tous). Limiter le coût.
+    `consensus_frac` : si fourni, sélection par CONSENSUS bootstrap (RC2) — un composant entre
+        au core ssi il passe le seuil dans ≥ `consensus_frac` des ré-échantillons ; les
+        composants instables vont dans `marginal`. Si None, seuil dur sur la moyenne (legacy).
     """
     candidates = candidates or backend.all_components()
 
@@ -219,7 +308,51 @@ def localize(
         per_pair.append(row)
 
     evidence = _aggregate(per_pair, list(range(len(pairs))))
-    core_set = _core_from_evidence(evidence, threshold)
+
+    marginal: list[Component] = []
+    freq: dict[Component, float] | None = None
+    precomputed_metrics: tuple | None = None
+    if target_faithfulness is not None:
+        # RC2 corrigé : core = plus petit ensemble (par nécessité causale décroissante) dont le
+        # knockout explique le comportement (faithfulness ≥ cible). Évite le seuil dur knife-edge
+        # qui scinde un vrai circuit (ex. Qwen3-0.6B : L15H9 a nec 0.526 mais suf 0.443).
+        ranked_all = sorted(evidence, key=lambda c: evidence[c].necessity, reverse=True)
+
+        def _faith(core_list):
+            return _circuit_metrics(backend, core_list, candidates, pairs, metric)[0] or 0.0
+
+        core_list, kstar = greedy_faithful_core(ranked_all, _faith, target_faithfulness,
+                                                max_k=max_core)
+        # ne pas couper au milieu d'une quasi-égalité causale → étendre jusqu'au prochain gap.
+        necs = {c: evidence[c].necessity for c in ranked_all}
+        kstar = extend_through_ties(ranked_all, necs, kstar, tie_ratio, max_k=max_core)
+        core_list = list(ranked_all[:kstar])
+        core_set = set(core_list)
+        # stabilité : sur chaque ré-échantillon, top-k* par nécessité ; Jaccard vs core retenu.
+        rng = random.Random(seed)
+        np = len(per_pair)
+        js = []
+        for _ in range(n_boot):
+            sample = [rng.randrange(np) for _ in range(np)]
+            ev_b = _aggregate(per_pair, sample)
+            ranked_b = sorted(ev_b, key=lambda c: ev_b[c].necessity, reverse=True)
+            js.append(jaccard(set(ranked_b[:kstar]), core_set))
+        boot_j = sum(js) / len(js) if js else 1.0
+        freq = selection_frequencies(per_pair, threshold, n_boot=n_boot, seed=seed)
+        if compute_circuit_metrics and core_list:
+            precomputed_metrics = _circuit_metrics(backend, core_list, candidates, pairs, metric)
+    elif consensus_frac is not None:
+        # RC2 : sélection par consensus bootstrap (stable par construction).
+        freq = selection_frequencies(per_pair, threshold, n_boot=n_boot, seed=seed)
+        core_set, marginal_set = core_by_consensus(freq, consensus_frac)
+        marginal = list(marginal_set)
+        # stabilité = accord des ré-échantillons avec le core consensus retenu.
+        cores_b = _bootstrap_cores(per_pair, threshold, n_boot, seed)
+        boot_j = (sum(jaccard(cb, core_set) for cb in cores_b) / len(cores_b)
+                  if cores_b else 1.0)
+    else:
+        core_set = _core_from_evidence(evidence, threshold)
+        boot_j = bootstrap_stability(per_pair, threshold, n_boot=n_boot, seed=seed)
     core = list(core_set)
 
     # motif gate→amplificateur : parmi le core (donc causal), séparer par la DLA.
@@ -232,10 +365,13 @@ def localize(
             (gates if abs(evidence[c].dla) <= cut else amplifiers).append(c)
 
     loc = Localization(evidence=evidence, core=core, threshold=threshold,
-                       gates=gates, amplifiers=amplifiers)
-    loc.bootstrap_jaccard = bootstrap_stability(per_pair, threshold, n_boot=n_boot, seed=seed)
+                       gates=gates, amplifiers=amplifiers, marginal=marginal,
+                       selection_frequency=freq)
+    loc.bootstrap_jaccard = boot_j
 
-    if compute_circuit_metrics and core:
+    if precomputed_metrics is not None:
+        loc.faithfulness, loc.cpr, loc.cmd = precomputed_metrics
+    elif compute_circuit_metrics and core:
         loc.faithfulness, loc.cpr, loc.cmd = _circuit_metrics(
             backend, core, candidates, pairs, metric
         )

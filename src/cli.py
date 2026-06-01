@@ -138,6 +138,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Composants top-attribution confirmés ensuite par patching exact.")
     p.add_argument("--threshold", type=float, default=0.5,
                    help="Seuil de recovery (nécessité+suffisance) pour entrer au circuit core.")
+    p.add_argument("--target-faithfulness", type=float, default=0.9,
+                   help="Sélection du core par faithfulness (RC2) : on agrège les composants par "
+                        "nécessité causale jusqu'à ce que le knockout du core explique ≥ cette "
+                        "fraction du comportement. 0 = seuil dur par score (legacy).")
     p.add_argument("--n-boot", type=int, default=200, help="Tirages bootstrap (stabilité Jaccard).")
     p.add_argument("--backend", choices=["auto", "torch", "nnsight"], default="auto",
                    help="Backend d'introspection (NNsight si dispo, sinon hooks torch).")
@@ -359,10 +363,22 @@ def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
 
     AUCUNE modification de poids. Renvoie un CircuitReport.
     """
+    import os
     import torch
 
+    # Déterminisme : tue le flip run-to-run dû au non-déterminisme matmul GPU (à régler AVANT
+    # toute init CUDA, donc avant load_model). warn_only pour ne pas casser si un op manque.
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except Exception:
+        pass
+
     from .circuits import make_backend
-    from .circuits.attribution import attribution_patching
+    from .circuits.attribution import aggregate_attribution
     from .circuits.dla import direct_logit_attribution, readout_direction
     from .circuits.localize import localize
     from .circuits.patching import RefusalMetric
@@ -406,15 +422,19 @@ def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
     backend = make_backend(model, prefer=getattr(ns, "backend", "auto"))
     metric = RefusalMetric(refusal_dir=r_hat)
 
-    # 1) SCAN bon marché : attribution sur tous les composants, sur la 1re paire (gradient)
-    cids, corr_ids, cmask, corrmask = pairs[0]
-    attr = attribution_patching(backend, cids, corr_ids, refusal_dir=r_hat,
-                                clean_mask=cmask, corrupted_mask=corrmask)
+    # 1) SCAN bon marché : attribution AGRÉGÉE sur TOUTES les paires (gradient).
+    #    Corrige RC1 : ne pas dériver l'univers de candidats d'une seule paire (pairs[0]), dont
+    #    le top-k varie fortement d'une paire à l'autre (Jaccard inter-paires mesuré ~0.37).
+    attr = aggregate_attribution(backend, pairs, refusal_dir=r_hat)
     candidates = [c for c, _ in attr.top(top_k)]
+    cids, cmask = pairs[0][0], pairs[0][2]   # pour le résumé DLA (corrélationnel) ci-dessous
 
     # 2) CONFIRME par patching exact (nécessité+suffisance) + bootstrap (+ métriques circuit)
+    tf = getattr(ns, "target_faithfulness", 0.9)
     loc = localize(backend, pairs, metric, r_hat, candidates=candidates,
-                   threshold=ns.threshold, n_boot=getattr(ns, "n_boot", 200),
+                   threshold=ns.threshold,
+                   target_faithfulness=(tf if tf and tf > 0 else None),
+                   n_boot=getattr(ns, "n_boot", 200),
                    compute_circuit_metrics=compute_metrics)
 
     dla = direct_logit_attribution(backend, r_hat, cids, cmask)

@@ -53,6 +53,101 @@ def test_bootstrap_drops_when_core_unstable():
     assert j < 1.0
 
 
+# ---- RC2 : sélection par consensus (stability selection) ------------------ #
+def test_selection_frequencies_separate_stable_from_borderline():
+    """CAUSAL passe le seuil dans toutes les paires → fréquence ~1 ; NOISE seulement la moitié
+    → fréquence intermédiaire (instable)."""
+    from src.circuits.localize import selection_frequencies
+    per_pair = [
+        {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 1.0, 1.0)},   # NOISE passe
+        {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 0.0, 0.0)},   # NOISE échoue
+        {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 1.0, 1.0)},
+        {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 0.0, 0.0)},
+    ]
+    freq = selection_frequencies(per_pair, threshold=0.5, n_boot=500, seed=0)
+    assert freq[CAUSAL] > 0.95
+    assert 0.1 < freq[NOISE] < 0.9
+
+
+def test_greedy_faithful_core_grows_to_minimal_faithful_set():
+    """RC2 corrigé : le core = plus petit préfixe (par force causale) dont la faithfulness
+    atteint la cible. Un seuil dur AND knife-edge scinde un vrai circuit à 2 têtes."""
+    from src.circuits.localize import greedy_faithful_core
+    ranked = [CAUSAL, NOISE, MLP]
+    fmap = {(CAUSAL,): 0.44, (CAUSAL, NOISE): 1.0}   # k=1 insuffisant, k=2 explique tout
+    core, k = greedy_faithful_core(ranked, lambda c: fmap.get(tuple(c), 1.0), target=0.9)
+    assert core == [CAUSAL, NOISE]
+    assert k == 2
+
+
+def test_extend_through_ties_absorbs_near_equal_then_stops_at_gap():
+    """Le core faithful minimal coupe parfois au milieu d'une quasi-égalité causale (L15H9≈L15MLP),
+    ce qui rend le membership instable. On étend à travers les quasi-égalités jusqu'au prochain
+    gap de nécessité → core stable."""
+    from src.circuits.localize import extend_through_ties
+    ranked = ["a", "b", "c", "d"]
+    necs = {"a": 0.56, "b": 0.51, "c": 0.46, "d": 0.23}
+    # c (0.46) ≥ 0.85·0.51 = 0.43 → absorbé ; d (0.23) < 0.85·0.46 = 0.39 → stop
+    assert extend_through_ties(ranked, necs, k_start=2, tie_ratio=0.85) == 3
+
+
+def test_extend_through_ties_no_extension_past_nonpositive_or_gap():
+    from src.circuits.localize import extend_through_ties
+    ranked = ["a", "b", "c"]
+    necs = {"a": 1.0, "b": 0.0, "c": -0.2}   # b n'est pas une quasi-égalité de a
+    assert extend_through_ties(ranked, necs, k_start=1, tie_ratio=0.85) == 1
+
+
+def test_greedy_faithful_core_stops_at_k1_when_enough():
+    from src.circuits.localize import greedy_faithful_core
+    core, k = greedy_faithful_core([CAUSAL, NOISE], lambda c: 1.0, target=0.9)
+    assert core == [CAUSAL]
+    assert k == 1
+
+
+def test_localize_faithful_core_reaches_target_and_is_stable():
+    from src.circuits.backend import TorchHookBackend
+    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
+    be = TorchHookBackend(ControllableModel())
+    metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
+    h, n = harmful_ids(), harmless_ids()
+    pairs = [(h, n, None, None)] * 3
+    loc = localize(be, pairs, metric, controllable_refusal_dir(),
+                   threshold=0.5, n_boot=20, target_faithfulness=0.9)
+    assert set(loc.core) == {CAUSAL}
+    assert loc.faithfulness >= 0.9
+    assert loc.bootstrap_jaccard >= 0.9
+
+
+def test_core_by_consensus_keeps_stable_lists_marginal():
+    from src.circuits.localize import core_by_consensus
+    freq = {CAUSAL: 1.0, NOISE: 0.45, MLP: 0.0}
+    core, marginal = core_by_consensus(freq, consensus_frac=0.8)
+    assert core == {CAUSAL}
+    assert marginal == {NOISE}        # sélectionné parfois mais pas de façon stable
+    assert MLP not in core and MLP not in marginal
+
+
+def test_localize_consensus_excludes_borderline_and_is_more_stable():
+    """Sur des évidences où une tête borderline ferait chuter le Jaccard, le mode consensus
+    rend un core stable (Jaccard ~1) et relègue la borderline en `marginal`."""
+    import torch as _t
+
+    from src.circuits.backend import TorchHookBackend
+    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
+
+    be = TorchHookBackend(ControllableModel())
+    metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
+    h, n = harmful_ids(), harmless_ids()
+    pairs = [(h, n, None, None)] * 3
+    loc = localize(be, pairs, metric, controllable_refusal_dir(),
+                   threshold=0.5, n_boot=50, consensus_frac=0.8)
+    assert CAUSAL in loc.core
+    assert NOISE not in loc.core
+    assert loc.bootstrap_jaccard >= 0.9
+    assert hasattr(loc, "marginal")
+
+
 # ---- intégration ---------------------------------------------------------- #
 def _pairs():
     h, n = harmful_ids(), harmless_ids()
