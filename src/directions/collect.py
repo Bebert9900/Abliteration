@@ -29,8 +29,9 @@ def collect_means(model, formatter, texts: list[str], batch_size: int = 8, devic
     n = 0
     for batch in _chunks(texts, batch_size):
         enc = formatter.tokenize(batch)
-        if device is not None and hasattr(enc, "to"):
-            enc = enc.to(device)
+        target = device if device is not None else getattr(model, "device", None)
+        if target is not None and hasattr(enc, "to"):
+            enc = enc.to(target)
         out = model(
             input_ids=enc["input_ids"],
             attention_mask=enc["attention_mask"],

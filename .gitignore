@@ -34,6 +34,11 @@ checkpoints/
 .cache/
 hf_cache/
 
+# Générations brutes d'éval = peuvent contenir du contenu harmful (sorties du modèle
+# abliteré). Ne JAMAIS publier sur un repo public. Les rapports agrégés (scores/labels) OK.
+rejudge_generations.json
+*_generations.json
+
 # Divers
 .DS_Store
 .idea/

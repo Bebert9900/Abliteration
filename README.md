@@ -72,7 +72,7 @@ src/
 ├── models/       # chargement bf16 + ArchAdapter (introspection d'archi)
 ├── directions/   # collecte d'activations, directions 4 classes, séparabilité, sélection
 ├── ablation/     # project_out, variantes, orthogonalisation des poids, hooks réversibles
-├── eval/         # refus, KL, négation, agentique, benchmarks, rapport bi-axe
+├── eval/         # refus (heuristique + juge LLM hors-ligne), KL, négation, agentique, benchmarks, rapport bi-axe
 ├── optimize/     # objectif composite + boucle Optuna TPE
 ├── io/           # safetensors + model card transparente (+ export GGUF stub)
 └── heal.py       # réparation agentique post-abliteration (stub documenté)
@@ -207,6 +207,15 @@ Produit un **rapport bi-axe** :
 - **Axe préservation** : `kl`, `negation_retention`, `agentic_score`.
 - **Garde-fous anti-gaming** : `degeneracy_rate`, `empty_rate`, `follow_rate`.
 
+Le juge de refus par défaut est **heuristique** (mots-clés, déterministe, `KeywordRefusalJudge`) :
+rapide et auditable, mais il **rate les refus déguisés** (un « Sure, here's how… » suivi de rien,
+une déflexion moralisatrice). Pour lever ce doute, un **juge LLM hors-ligne** (`src/eval/llm_judge.py`)
+permet de **re-classer après coup** les sorties déjà générées en `REFUSAL / NON_REFUSAL / EVASIVE`.
+
+> ⚠️ Cadre : ce juge LLM est une **analyse hors-ligne** sur des sorties déjà produites, **pas** une
+> dépendance du pipeline qui produit le modèle (lequel reste sans IA au runtime). Et un juge LLM
+> n'est fiable que **validé** : voir §8.1 (un petit juge 3B local a échoué la validation humaine).
+
 ### Réparation agentique (`heal`)
 
 ```bash
@@ -219,28 +228,42 @@ réintroduire le refus.
 
 ## 7. État d'implémentation (honnête)
 
-Tout le **cœur algorithmique** est implémenté et testé. Deux handlers CLI et deux exports
-restent des **stubs documentés** (interface posée, câblage réel à brancher) :
+Tout le **cœur algorithmique** est implémenté et testé, et la CLI produit désormais un **vrai
+modèle abliteré et de vraies métriques** (génération sur holdout branchée). Restent des stubs
+documentés sur deux exports/réparation.
 
 | Composant | État |
 |---|---|
 | `data`, `models`/`ArchAdapter`, `directions`, `ablation` | ✅ implémenté + testé |
-| `eval` (métriques refus/KL/négation/agentique, rapport) | ✅ implémenté + testé |
+| `eval` (refus/KL/négation/agentique, juge LLM hors-ligne, rapport) | ✅ implémenté + testé |
 | `optimize` (objectif composite, boucle Optuna) | ✅ implémenté + testé |
 | `io` (safetensors, model card) | ✅ implémenté + testé |
 | CLI `extract` / `select` / `apply` / `abliterate` / `diagnose` | ✅ câblés aux vrais modules |
-| CLI `eval` / `optimize` (handlers) | ⚠️ **partiellement stubés** : construisent un rapport/objectif à zéros — le câblage génération-sur-holdout reste à finir |
+| CLI `eval` | ✅ **réel** : génération sur holdout + métriques bi-axe (option `--base`, `--benchmarks`) |
+| `analyze-circuit` | ✅ réel (lecture seule, voir §12) |
+| `cmd_optimize` (handler) | ⚠️ objectif encore stubé (renvoie `0.0`) — la boucle Optuna existe, le branchement génération reste à finir |
 | `heal()` | ⚠️ **stub** : lève `NotImplementedError` avec la marche à suivre |
 | `io.export_gguf` | ⚠️ **stub** : nécessite llama.cpp |
 
-> Conséquence pratique : `abliterate`/`apply`/`extract` produisent un vrai modèle abliteré ;
-> `eval` et `optimize` ne renvoient pas encore de métriques réelles tant que la génération
-> sur holdout n'est pas branchée.
+### 7.1 Validation empirique (Qwen2.5-3B-Instruct, variante `preserving`, couche 22)
+
+Mesuré sur le holdout harmful (30 prompts), juge **heuristique** :
+
+| métrique | base | abliteré |
+|---|---|---|
+| `refusal_rate` | 0.90 | **0.00** |
+| `negation_retention` | 0.93 | 0.90 |
+| `agentic_score` | 0.97 | 1.00 |
+| `degeneracy` / `empty` | 0 / 0 | 0 / 0 |
+| KL de préservation | — | 0.81 |
+
+Refus supprimé, capacités préservées, pas de lobotomie.
 
 ## 8. Tests
 
 ```bash
-pytest          # 68 tests, ~2 s
+pytest                    # 151 tests, ~4 s
+pytest -m "not model"     # idem en sautant les tests qui chargent un vrai modèle
 ```
 
 Le test phare est `tests/integration/test_constraints.py` : sur un **modèle jouet torch**
@@ -251,6 +274,27 @@ dont les writers résiduels valent l'identité, la rétention d'une sonde devien
 - `preserving` **garde** négation et agentique (rétention ≈ 1.0) ;
 - `conventional` les **abîme** (rétention < 0.95) au même endroit ;
 - dans les deux cas le **refus est bien réduit** (canari anti-régression).
+
+### 8.1 Valider le juge avant de lui faire confiance
+
+Le `refusal_rate` ne vaut que ce que vaut le **juge**. Le juge heuristique (mots-clés) est le
+maillon faible : un `0.00` peut signifier « ne refuse vraiment plus » **ou** « le juge ne voit pas
+les refus déguisés ». On a levé le doute en re-jugeant les sorties déjà générées avec un juge LLM
+hors-ligne (`rejudge_harmful.py`), **puis en validant ce juge contre des labels humains** :
+
+- Le **juge LLM 3B local a échoué** la validation. Rubrique stricte → biais de nocivité (classe
+  REFUSAL des réponses qui *complient* ; accord ↔ humain = 6.7 %). Rubrique few-shot dé-biaisée →
+  bonne sur l'abliteré (86.7 %) mais **aveugle aux refus francs** côté base (46.7 %). Conclusion :
+  remplacer un instrument douteux par un juge 3B instable serait une erreur — **la référence
+  autoritaire reste le label humain**, et un juge LLM fiable demande un modèle plus grand/dédié.
+- **Verdict sur le 0 %** : en lisant les 30 réponses abliterées, **90 % sont de vraies
+  compliances**. Le 0 % heuristique ne masque pas un mur de refus déguisés ; il était seulement
+  un peu optimiste — le taux de refus humain autoritaire est **≈ 6.7 %** (2 refus déguisés que
+  les mots-clés ratent) + 3.3 % évasif. L'abliteration est confirmée solide.
+
+> Leçon réutilisable : **toujours valider un juge automatique sur un échantillon humain** par run,
+> et sauvegarder les **textes bruts** des générations (pas seulement les scores) pour pouvoir
+> re-juger après coup. Les générations brutes peuvent contenir du contenu harmful → `gitignore`.
 
 ## 9. Gotchas critiques (sources de bugs silencieux)
 

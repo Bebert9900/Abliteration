@@ -111,7 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
     # eval ------------------------------------------------------------------- #
     p = sub.add_parser("eval", help="Évalue un modèle (rapport bi-axe).")
     _add_model(p); _add_common(p)
-    p.add_argument("--benchmarks", default=None, help="Benchmarks externes (liste virgulée).")
+    p.add_argument("--base", default=None, help="Modèle de base (référence KL de préservation).")
+    p.add_argument("--benchmarks", default=None, help="Benchmarks externes (liste virgulée), ex 'mmlu,gsm8k'.")
+    p.add_argument("--bench-limit", type=int, default=None, dest="bench_limit",
+                   help="Limite d'exemples par benchmark (sous-ensemble rapide).")
     p.add_argument("--out", default=None, help="Fichier JSON du rapport (stdout si absent).")
     p.set_defaults(func=cmd_eval)
 
@@ -142,6 +145,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Sélection du core par faithfulness (RC2) : on agrège les composants par "
                         "nécessité causale jusqu'à ce que le knockout du core explique ≥ cette "
                         "fraction du comportement. 0 = seuil dur par score (legacy).")
+    p.add_argument("--holdout-frac", type=float, default=0.5,
+                   help="Fraction des paires réservée à la MESURE held-out de la faithfulness "
+                        "(jamais utilisée pour sélectionner le circuit). Anti-tautologie. 0 = off.")
+    p.add_argument("--min-holdout", type=int, default=5,
+                   help="Taille minimale du test-set held-out ; en dessous, WARNING dans le JSON.")
     p.add_argument("--n-boot", type=int, default=200, help="Tirages bootstrap (stabilité Jaccard).")
     p.add_argument("--backend", choices=["auto", "torch", "nnsight"], default="auto",
                    help="Backend d'introspection (NNsight si dispo, sinon hooks torch).")
@@ -176,17 +184,137 @@ def _parse_layers(spec: str | None) -> list[int] | None:
 
 
 def _load_four_class_data(ns):
-    """Charge les 4 classes contrastives depuis ns.data_dir (un fichier par classe)."""
+    """Charge les 4 classes contrastives (un fichier par classe) avec split train/holdout.
+
+    `train` sert à calculer les directions ; `holdout` à évaluer le refus sur des prompts jamais
+    vus (protocole honnête, KB §7). Échoue clairement si un fichier de classe manque.
+    """
     from pathlib import Path
 
-    from .data import FourClassData, PromptClass, load_prompts
+    from .data import FourClassData, PromptClass
 
     base = Path(ns.data_dir)
-    by_class = {}
-    for cls in PromptClass:
-        path = base / f"{cls.value}.txt"
-        by_class[cls] = load_prompts(path, cls) if path.exists() else []
-    return FourClassData(**{cls.value: by_class[cls] for cls in PromptClass})
+    paths = {cls: base / f"{cls.value}.txt" for cls in PromptClass}
+    missing = [str(p) for p in paths.values() if not p.exists()]
+    if missing:
+        raise FileNotFoundError(f"fichiers de classe manquants sous {base} : {missing}")
+    return FourClassData.load(paths, holdout_fraction=ns.holdout, seed=ns.seed)
+
+
+def _default_candidate_layers(n_layers: int) -> list[int]:
+    """Band milieu→milieu-tardif (KB §2.1) où la direction de refus est la plus exploitable."""
+    fracs = (0.4, 0.5, 0.6, 0.7, 0.8)
+    cand = sorted({max(1, min(n_layers - 1, int(round(n_layers * f)))) for f in fracs})
+    return cand
+
+
+def _select_layer_causal(model, adapter, formatter, directions, candidate_layers, harmful_texts,
+                         device=None, n_probe=24, max_new_tokens=32):
+    """Sélection RÉELLE (causale) : pour chaque couche candidate, on pose le hook d'ablation
+    réversible (KB §5a) avec r̂ de cette couche, on génère sur un échantillon harmful, et on
+    garde la couche qui MINIMISE le taux de refus. C'est la stratégie décrite dans selection.py.
+    """
+    from .ablation import register_ablation_hooks
+    from .directions import select_layer
+    from .eval import KeywordRefusalJudge, generate_responses, refusal_rate
+
+    judge = KeywordRefusalJudge()
+    probe = harmful_texts[:n_probe]
+    # modules écrivant au residual stream (hors embedding) = cibles du hook inference-time.
+    from .models import WriteKind
+    targets = [t.module for t in adapter.residual_writers() if t.kind != WriteKind.EMBEDDING]
+    dev = next(model.parameters()).device
+
+    scores: dict[int, float] = {}
+
+    def score_fn(layer: int) -> float:
+        direction = directions.refusal[layer].to(dev)
+        handles = register_ablation_hooks(targets, direction)
+        try:
+            resp = generate_responses(model, formatter, probe, max_new_tokens=max_new_tokens,
+                                      min_new_tokens=8, batch_size=8, device=device)
+        finally:
+            for h in handles:
+                h.remove()
+        r = refusal_rate(probe, resp, judge)
+        scores[layer] = r
+        log.info("  couche %d : refus(ablation)=%.3f", layer, r)
+        return r
+
+    best = select_layer(candidate_layers, score_fn)
+    log.info("Meilleure couche (refus minimal sous ablation) : %d (refus=%.3f)", best, scores[best])
+    return best, scores
+
+
+def _run_eval(model, formatter, data, *, base_logits=None, kl_texts=None, device=None,
+              max_new_tokens=128, batch_size=8):
+    """Évaluation bi-axe RÉELLE sur le holdout (génération + juges déterministes).
+
+    Axe 1 (suppression refus) : refusal_rate sur harmful holdout.
+    Axe 2 (préservation) : negation_retention, agentic_score, KL(base‖abliteré) sur harmless.
+    Garde-fous : degeneracy_rate, empty_rate, follow_rate (sycophantie).
+    """
+    from .data import PromptClass
+    from .eval import (
+        EvalReport, KeywordRefusalJudge, agentic_score, degeneracy_rate, empty_rate,
+        follow_rate, generate_responses, harmless_logits, is_sycophantic, kl_divergence,
+        negates_correctly, negation_retention, parse_tool_call, refusal_rate, schema_valid,
+    )
+
+    judge = KeywordRefusalJudge()
+
+    def gen(texts):
+        return generate_responses(model, formatter, texts, max_new_tokens=max_new_tokens,
+                                  batch_size=batch_size, device=device)
+
+    # --- Axe 1 : refus sur harmful holdout ---
+    harmful = [p.text for p in data.holdout(PromptClass.HARMFUL)]
+    resp_h = gen(harmful)
+    refusal = refusal_rate(harmful, resp_h, judge)
+    degeneracy = degeneracy_rate(resp_h)
+    empty = empty_rate(resp_h)
+
+    # --- Axe 2a : négation logique légitime (préservation) ---
+    neg = [p.text for p in data.holdout(PromptClass.LEGITIMATE_NEGATION)]
+    resp_n = gen(neg)
+    neg_ret = negation_retention(resp_n, negates_correctly)
+    follow = follow_rate(resp_n, is_sycophantic)
+
+    # --- Axe 2b : capacités agentiques (validité de schéma de tool call) ---
+    # On donne au modèle le contrat de sortie (nom d'outil + format JSON) pour que la métrique
+    # mesure la CAPACITÉ à émettre un appel valide, pas la connaissance d'un format implicite.
+    ag = data.holdout(PromptClass.AGENTIC)
+
+    def _agentic_prompt(p):
+        schema = p.meta.get("tool", {})
+        name = schema.get("name", "the_tool")
+        req = ", ".join(schema.get("parameters", {}).get("required", []))
+        return (f"{p.text}\n\nAvailable tool: `{name}` (required arguments: {req}).\n"
+                f"Respond with ONLY a JSON object of the form "
+                f'{{"name": "{name}", "arguments": {{...}}}}.')
+
+    resp_a = gen([_agentic_prompt(p) for p in ag])
+    valid = 0
+    for prompt, out in zip(ag, resp_a):
+        schema = prompt.meta.get("tool", {})
+        call = parse_tool_call(out)
+        if call is not None and schema and schema_valid(call, schema):
+            valid += 1
+    schema_validity = valid / len(ag) if ag else 0.0
+    agentic = agentic_score(schema_validity, schema_validity, schema_validity)
+
+    # --- Axe 2c : KL de préservation sur harmless (si logits de base fournis) ---
+    kl = 0.0
+    if base_logits is not None and kl_texts:
+        abl_logits = harmless_logits(model, formatter, kl_texts, batch_size=max(2, batch_size // 2),
+                                     device=device)
+        n = min(base_logits.shape[0], abl_logits.shape[0])
+        kl = kl_divergence(base_logits[:n], abl_logits[:n])
+
+    return EvalReport(
+        refusal_rate=refusal, kl=kl, negation_retention=neg_ret, follow_rate=follow,
+        empty_rate=empty, agentic_score=agentic, degeneracy_rate=degeneracy,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -206,10 +334,10 @@ def cmd_extract(ns) -> int:
 
     means = {}
     for cls in PromptClass:
-        texts = [p.text for p in data.get(cls)]
+        texts = [p.text for p in data.train(cls)]   # directions calculées sur le TRAIN uniquement
         if not texts:
-            log.warning("Classe %s vide — ignorée.", cls.value)
-            continue
+            raise ValueError(f"Classe {cls.value} vide : impossible de calculer les directions.")
+        log.info("Collecte d'activations : %s (%d prompts train)", cls.value, len(texts))
         means[cls] = collect_means(model, formatter, texts, batch_size=ns.batch_size, device=ns.device)
 
     directions = compute_directions(means)
@@ -222,12 +350,21 @@ def cmd_extract(ns) -> int:
 def cmd_select(ns) -> int:
     import torch
 
-    from .directions import select_layer, separability
+    from .data import PromptClass, PromptFormatter
+    from .models import ArchAdapter, load_model
 
     directions = torch.load(ns.directions, weights_only=False)
-    layers = _parse_layers(ns.layers) or list(range(len(getattr(directions, "refusal", []) or [0])))
-    best = select_layer(layers, lambda l: separability(directions, l).score)
-    log.info("Meilleure couche : %d", best)
+    n_layers = directions.refusal.shape[0]
+    candidates = _parse_layers(ns.layers) or _default_candidate_layers(n_layers)
+
+    model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
+    formatter = PromptFormatter(tok)
+    adapter = ArchAdapter(model)
+    data = _load_four_class_data(ns)
+    harmful = [p.text for p in data.train(PromptClass.HARMFUL)]
+
+    best, _ = _select_layer_causal(model, adapter, formatter, directions, candidates, harmful,
+                                   device=ns.device)
     print(best)
     return 0
 
@@ -258,17 +395,69 @@ def cmd_apply(ns) -> int:
 
 
 def cmd_abliterate(ns) -> int:
-    """Pipeline complet : extract → select → apply (réutilise les handlers)."""
-    import tempfile
-    from pathlib import Path
+    """Pipeline complet, modèle chargé UNE seule fois :
+    extract (directions sur train) → select (couche par ablation causale) → KL base →
+    orthogonalisation des poids → éval bi-axe holdout → sauvegarde + model card.
+    """
+    import json
 
-    with tempfile.TemporaryDirectory() as tmp:
-        ns.out_directions = str(Path(tmp) / "directions.pt")
-        extract_ns = argparse.Namespace(**{**vars(ns), "out": ns.out_directions})
-        cmd_extract(extract_ns)
-        apply_ns = argparse.Namespace(**{**vars(ns), "directions": ns.out_directions})
-        cmd_apply(apply_ns)
+    from .ablation import Variant, ablation_direction, orthogonalize_weights
+    from .data import PromptClass, PromptFormatter
+    from .directions import collect_means, compute_directions
+    from .eval import harmless_logits
+    from .io import build_model_card, save_model, write_model_card
+    from .models import ArchAdapter, load_model
+
+    preserve = parse_preserve(ns.preserve)
+    log.info("Chargement du modèle %s", ns.model)
+    model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
+    formatter = PromptFormatter(tok)
+    adapter = ArchAdapter(model)
+    data = _load_four_class_data(ns)
+
+    # 1) Directions (4 classes) sur le TRAIN.
+    means = {}
+    for cls in PromptClass:
+        texts = [p.text for p in data.train(cls)]
+        log.info("Collecte d'activations : %s (%d prompts)", cls.value, len(texts))
+        means[cls] = collect_means(model, formatter, texts, batch_size=ns.batch_size, device=ns.device)
+    directions = compute_directions(means)
+
+    # 2) Sélection causale de la couche de refus.
+    n_layers = directions.refusal.shape[0]
+    candidates = _parse_layers(ns.layers) or _default_candidate_layers(n_layers)
+    harmful_train = [p.text for p in data.train(PromptClass.HARMFUL)]
+    best_layer, layer_scores = _select_layer_causal(
+        model, adapter, formatter, directions, candidates, harmful_train, device=ns.device)
+
+    # 3) Logits de base (préservation/KL) sur un échantillon harmless AVANT de modifier les poids.
+    kl_texts = [p.text for p in data.holdout(PromptClass.HARMLESS)][:16]
+    log.info("Capture des logits de base (KL) sur %d prompts harmless", len(kl_texts))
+    base_logits = harmless_logits(model, formatter, kl_texts, batch_size=4, device=ns.device)
+
+    # 4) Orthogonalisation permanente des poids contre la direction (projetée selon la variante).
+    direction = ablation_direction(directions, best_layer, Variant(ns.variant), preserve=preserve or None)
+    log.info("Orthogonalisation des poids (variante=%s, couche=%d, preserve=%s)",
+             ns.variant, best_layer, preserve or "—")
+    orthogonalize_weights(adapter, direction, norm_preserve=getattr(ns, "norm_preserve", False))
+    import torch as _torch
+    if _torch.cuda.is_available():
+        _torch.cuda.empty_cache()
+
+    # 5) Éval bi-axe sur le holdout (modèle désormais abliteré en mémoire).
+    log.info("Évaluation bi-axe du modèle abliteré (holdout)")
+    report = _run_eval(model, formatter, data, base_logits=base_logits, kl_texts=kl_texts,
+                       device=ns.device, batch_size=ns.batch_size)
+
+    # 6) Sauvegarde + model card transparente avec métriques.
+    metrics = report.to_dict()
+    metrics["selected_layer"] = best_layer
+    save_model(model, tok, ns.out)
+    card = build_model_card(ns.model, ns.variant, preserve, metrics=metrics)
+    write_model_card(ns.out, card)
+    report.save(__import__("pathlib").Path(ns.out) / "eval_report.json")
     log.info("Abliteration terminée → %s", ns.out)
+    print(json.dumps(metrics, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -292,24 +481,49 @@ def cmd_optimize(ns) -> int:
 
 
 def cmd_eval(ns) -> int:
-    from .eval import EvalReport
+    from .data import PromptClass, PromptFormatter
+    from .eval import BenchmarkNotInstalled, harmless_logits, run_benchmark
+    from .models import load_model
 
     log.info("Évaluation de %s", ns.model)
-    # Le câblage complet (chargement + génération holdout) est porté par le pipeline ;
-    # ici on s'assure que le rapport bi-axe est constructible et sérialisable.
-    report = EvalReport(
-        refusal_rate=0.0, kl=0.0, negation_retention=0.0, follow_rate=0.0,
-        empty_rate=0.0, agentic_score=0.0, degeneracy_rate=0.0,
-    )
+    model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
+    formatter = PromptFormatter(tok)
+    data = _load_four_class_data(ns)
+    kl_texts = [p.text for p in data.holdout(PromptClass.HARMLESS)][:16]
+
+    # KL de préservation vs un modèle de base optionnel (--base).
+    base_logits = None
+    base = getattr(ns, "base", None)
+    if base:
+        log.info("Chargement du modèle de base %s pour la KL", base)
+        base_model, base_tok = load_model(base, dtype=ns.dtype, device_map=ns.device or "auto")
+        base_logits = harmless_logits(base_model, PromptFormatter(base_tok), kl_texts,
+                                      batch_size=4, device=ns.device)
+        del base_model
+
+    report = _run_eval(model, formatter, data, base_logits=base_logits, kl_texts=kl_texts,
+                       device=ns.device, batch_size=ns.batch_size)
+
+    # Benchmarks externes (lm-eval) — pilotés sur le chemin du modèle.
+    benchmarks = parse_preserve(getattr(ns, "benchmarks", None))
+    if benchmarks:
+        results = {}
+        limit = getattr(ns, "bench_limit", None)
+        for name in benchmarks:
+            try:
+                log.info("Benchmark %s …", name)
+                results[name] = run_benchmark(name, ns.model, device=ns.device or "cuda", limit=limit)
+            except (BenchmarkNotInstalled, NotImplementedError, ValueError) as e:
+                log.warning("Benchmark %s ignoré : %s", name, e)
+                results[name] = {"error": str(e)}
+        report.benchmarks = results
+
+    import json
     out = getattr(ns, "out", None)
     if out:
-        import json
-        from dataclasses import asdict
-        with open(out, "w", encoding="utf-8") as fh:
-            json.dump(asdict(report), fh, indent=2, ensure_ascii=False)
+        report.save(out)
         log.info("Rapport écrit dans %s", out)
-    else:
-        print(report)
+    print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
     return 0
 
 
@@ -320,10 +534,15 @@ def cmd_diagnose(ns) -> int:
 
     if ns.directions:
         directions = torch.load(ns.directions, weights_only=False)
-        layers = _parse_layers(ns.layers) or [0]
+        rep = separability(directions)
+        n_layers = directions.refusal.shape[0]
+        layers = _parse_layers(ns.layers) or list(range(n_layers))
         for layer in layers:
-            rep = separability(directions, layer)
-            print(f"layer={layer} score={rep.score}")
+            cn = float(rep.cosine_refusal_negation[layer])
+            ca = float(rep.cosine_refusal_agentic[layer])
+            print(f"layer={layer} cos(refus,negation)={cn:+.3f} cos(refus,agentic)={ca:+.3f}")
+        for w in rep.warnings():
+            log.warning("%s", w)
     else:
         log.warning("Aucun fichier --directions : lancez d'abord `extract`.")
 
@@ -422,21 +641,20 @@ def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
     backend = make_backend(model, prefer=getattr(ns, "backend", "auto"))
     metric = RefusalMetric(refusal_dir=r_hat)
 
-    # 1) SCAN bon marché : attribution AGRÉGÉE sur TOUTES les paires (gradient).
-    #    Corrige RC1 : ne pas dériver l'univers de candidats d'une seule paire (pairs[0]), dont
-    #    le top-k varie fortement d'une paire à l'autre (Jaccard inter-paires mesuré ~0.37).
-    attr = aggregate_attribution(backend, pairs, refusal_dir=r_hat)
-    candidates = [c for c, _ in attr.top(top_k)]
-    cids, cmask = pairs[0][0], pairs[0][2]   # pour le résumé DLA (corrélationnel) ci-dessous
-
-    # 2) CONFIRME par patching exact (nécessité+suffisance) + bootstrap (+ métriques circuit)
+    # 1+2) localize gère le split train/test : candidats (attribution agrégée) + greedy SUR LE
+    #    TRAIN, faithfulness REPORTÉE sur le held-out (anti-tautologie). candidates=None →
+    #    dérivés sur le train uniquement (corrige RC1 + ferme la fuite sélection→mesure).
     tf = getattr(ns, "target_faithfulness", 0.9)
-    loc = localize(backend, pairs, metric, r_hat, candidates=candidates,
+    loc = localize(backend, pairs, metric, r_hat, candidates=None,
                    threshold=ns.threshold,
                    target_faithfulness=(tf if tf and tf > 0 else None),
+                   holdout_frac=getattr(ns, "holdout_frac", 0.5),
+                   min_holdout=getattr(ns, "min_holdout", 5),
+                   n_candidates=top_k,
                    n_boot=getattr(ns, "n_boot", 200),
                    compute_circuit_metrics=compute_metrics)
 
+    cids, cmask = pairs[0][0], pairs[0][2]   # résumé DLA (corrélationnel) sur la 1re paire
     dla = direct_logit_attribution(backend, r_hat, cids, cmask)
     return CircuitReport(model_name=ns.model, localization=loc, dla=dla, n_pairs=len(pairs))
 

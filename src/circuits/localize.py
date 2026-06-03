@@ -13,7 +13,12 @@ BlackboxNLP 2025 ; les FORMULES ci-dessous sont notre opérationnalisation expli
 chiffres importés) :
 - **faithfulness** : fraction de paires où l'intervention sur le circuit core produit le
   changement attendu (le knockout du core sur le run clean fait basculer la métrique vers le
-  niveau corrompu, au-delà du milieu).
+  niveau corrompu, au-delà du milieu). **ANTI-TAUTOLOGIE** : avec `holdout_frac`, le circuit est
+  SÉLECTIONNÉ sur le train-set (attribution + greedy + nécessité) et la faithfulness REPORTÉE est
+  mesurée sur le test-set held-out (paires jamais vues à la sélection). Le chiffre autoritaire et
+  la décision de porte = held-out ; l'in-sample n'est gardé que pour comparaison. Comme greedy
+  croît JUSQU'À la cible, atteindre la cible n'est pas une preuve (c'est la condition d'arrêt) :
+  la preuve = held-out élevé + contrôle négatif (triplet aléatoire ≈ 0).
 - **CPR** (circuit performance ratio) : effet causal capté par le core / effet causal de TOUS
   les composants (∈ ~[0,1], plus haut = le core capture l'essentiel ; >1 possible si le core
   surcapte).
@@ -59,9 +64,14 @@ class Localization:
     marginal: list[Component] = field(default_factory=list)
     selection_frequency: dict[Component, float] | None = None
     bootstrap_jaccard: float | None = None
-    faithfulness: float | None = None
+    faithfulness: float | None = None          # AUTORITAIRE = held-out (anti-tautologie)
+    faithfulness_insample: float | None = None  # même paires que la sélection (transparence)
     cpr: float | None = None
     cmd: float | None = None
+    n_train: int = 0                            # paires de SÉLECTION (attribution + greedy)
+    n_test: int = 0                             # paires de MESURE (held-out, jamais sélectionnées)
+    held_out: bool = False                      # True si faithfulness mesurée hors échantillon
+    holdout_warning: str | None = None          # !=None si le test-set est trop petit
 
     def ranked_core(self) -> list[Component]:
         """Core trié par nécessité causale décroissante."""
@@ -80,6 +90,27 @@ def jaccard(a: set, b: set) -> float:
     if not a and not b:
         return 1.0
     return len(a & b) / len(a | b)
+
+
+def split_pairs(n: int, holdout_frac: float | None, seed: int = 0) -> tuple[list[int], list[int]]:
+    """Partition déterministe des indices de paires en (train, test) DISJOINTS.
+
+    `train` sert à SÉLECTIONNER le circuit (attribution + greedy + nécessité) ; `test` à MESURER
+    la faithfulness reportée — anti-tautologie. La permutation est seedée (reproductible) et
+    indépendante de l'ordre des données. Si holdout désactivé / n trop petit, train == test ==
+    tous les indices (comportement legacy, pas de held-out).
+    """
+    idx = list(range(n))
+    if not holdout_frac or n <= 1:
+        return idx, idx
+    rng = random.Random(seed)
+    perm = idx[:]
+    rng.shuffle(perm)
+    n_test = max(1, round(n * holdout_frac))
+    n_test = min(n_test, n - 1)              # garder ≥1 paire de train
+    test = sorted(perm[:n_test])
+    train = sorted(perm[n_test:])
+    return train, test
 
 
 def _aggregate(per_pair: list[dict[Component, tuple[float, float, float]]],
@@ -273,6 +304,9 @@ def localize(
     target_faithfulness: float | None = None,
     tie_ratio: float = 0.85,
     max_core: int | None = None,
+    holdout_frac: float | None = None,
+    min_holdout: int = 5,
+    n_candidates: int = 20,
     dla_gate_quantile: float = 0.25,
     n_boot: int = 200,
     seed: int = 0,
@@ -287,12 +321,28 @@ def localize(
         au core ssi il passe le seuil dans ≥ `consensus_frac` des ré-échantillons ; les
         composants instables vont dans `marginal`. Si None, seuil dur sur la moyenne (legacy).
     """
-    candidates = candidates or backend.all_components()
-
     def dir_for(i):
         if isinstance(refusal_dirs, torch.Tensor) and refusal_dirs.dim() == 1:
             return refusal_dirs
         return refusal_dirs[i]
+
+    # Split train/test déterministe : SÉLECTION sur train, MESURE (faithfulness) sur test.
+    train_idx, test_idx = split_pairs(len(pairs), holdout_frac, seed)
+    train_pairs = [pairs[i] for i in train_idx]
+    test_pairs = [pairs[i] for i in test_idx]
+    holdout_on = holdout_frac is not None and test_idx != train_idx
+    warn = None
+    if holdout_on and len(test_idx) < min_holdout:
+        warn = (f"held-out test-set = {len(test_idx)} paires (< min_holdout={min_holdout}) : "
+                f"faithfulness held-out peu significative — augmenter le nombre de paires.")
+
+    # Candidats dérivés sur le TRAIN uniquement (sinon fuite de sélection vers la mesure).
+    if candidates is None:
+        from .attribution import aggregate_attribution
+        rd = (refusal_dirs if isinstance(refusal_dirs, torch.Tensor)
+              else [refusal_dirs[i] for i in train_idx])
+        candidates = [c for c, _ in
+                      aggregate_attribution(backend, train_pairs, refusal_dir=rd).top(n_candidates)]
 
     # collecte per-paire : (dla, necessity, sufficiency) par composant
     per_pair: list[dict[Component, tuple[float, float, float]]] = []
@@ -307,19 +357,22 @@ def localize(
             row[c] = (dla.scores.get(c, 0.0), v.necessity_recovery, v.sufficiency_recovery)
         per_pair.append(row)
 
-    evidence = _aggregate(per_pair, list(range(len(pairs))))
+    # Évidence de SÉLECTION : agrégée sur le train uniquement.
+    evidence = _aggregate(per_pair, train_idx)
 
     marginal: list[Component] = []
     freq: dict[Component, float] | None = None
     precomputed_metrics: tuple | None = None
+    insample_faith: float | None = None
     if target_faithfulness is not None:
         # RC2 corrigé : core = plus petit ensemble (par nécessité causale décroissante) dont le
         # knockout explique le comportement (faithfulness ≥ cible). Évite le seuil dur knife-edge
         # qui scinde un vrai circuit (ex. Qwen3-0.6B : L15H9 a nec 0.526 mais suf 0.443).
         ranked_all = sorted(evidence, key=lambda c: evidence[c].necessity, reverse=True)
 
+        # SÉLECTION : la faithfulness qui pilote greedy est mesurée sur le TRAIN.
         def _faith(core_list):
-            return _circuit_metrics(backend, core_list, candidates, pairs, metric)[0] or 0.0
+            return _circuit_metrics(backend, core_list, candidates, train_pairs, metric)[0] or 0.0
 
         core_list, kstar = greedy_faithful_core(ranked_all, _faith, target_faithfulness,
                                                 max_k=max_core)
@@ -328,19 +381,22 @@ def localize(
         kstar = extend_through_ties(ranked_all, necs, kstar, tie_ratio, max_k=max_core)
         core_list = list(ranked_all[:kstar])
         core_set = set(core_list)
-        # stabilité : sur chaque ré-échantillon, top-k* par nécessité ; Jaccard vs core retenu.
+        # stabilité : ré-échantillonnage du TRAIN ; top-k* par nécessité ; Jaccard vs core retenu.
+        per_train = [per_pair[i] for i in train_idx]
         rng = random.Random(seed)
-        np = len(per_pair)
+        nt = len(per_train)
         js = []
         for _ in range(n_boot):
-            sample = [rng.randrange(np) for _ in range(np)]
-            ev_b = _aggregate(per_pair, sample)
+            sample = [rng.randrange(nt) for _ in range(nt)]
+            ev_b = _aggregate(per_train, sample)
             ranked_b = sorted(ev_b, key=lambda c: ev_b[c].necessity, reverse=True)
             js.append(jaccard(set(ranked_b[:kstar]), core_set))
         boot_j = sum(js) / len(js) if js else 1.0
-        freq = selection_frequencies(per_pair, threshold, n_boot=n_boot, seed=seed)
+        freq = selection_frequencies(per_train, threshold, n_boot=n_boot, seed=seed)
         if compute_circuit_metrics and core_list:
-            precomputed_metrics = _circuit_metrics(backend, core_list, candidates, pairs, metric)
+            # MESURE AUTORITAIRE : faithfulness sur le held-out (test) ; in-sample en transparence.
+            precomputed_metrics = _circuit_metrics(backend, core_list, candidates, test_pairs, metric)
+            insample_faith = _circuit_metrics(backend, core_list, candidates, train_pairs, metric)[0]
     elif consensus_frac is not None:
         # RC2 : sélection par consensus bootstrap (stable par construction).
         freq = selection_frequencies(per_pair, threshold, n_boot=n_boot, seed=seed)
@@ -366,13 +422,18 @@ def localize(
 
     loc = Localization(evidence=evidence, core=core, threshold=threshold,
                        gates=gates, amplifiers=amplifiers, marginal=marginal,
-                       selection_frequency=freq)
+                       selection_frequency=freq,
+                       n_train=len(train_idx), n_test=len(test_idx),
+                       held_out=holdout_on, holdout_warning=warn)
     loc.bootstrap_jaccard = boot_j
 
     if precomputed_metrics is not None:
         loc.faithfulness, loc.cpr, loc.cmd = precomputed_metrics
+        loc.faithfulness_insample = insample_faith
     elif compute_circuit_metrics and core:
-        loc.faithfulness, loc.cpr, loc.cmd = _circuit_metrics(
-            backend, core, candidates, pairs, metric
-        )
+        # branches consensus/legacy : mesure held-out (test) + in-sample (train) en transparence.
+        loc.faithfulness, loc.cpr, loc.cmd = _circuit_metrics(backend, core, candidates,
+                                                              test_pairs, metric)
+        loc.faithfulness_insample = _circuit_metrics(backend, core, candidates,
+                                                     train_pairs, metric)[0]
     return loc

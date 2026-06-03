@@ -62,10 +62,17 @@ class CircuitReport:
                 "bootstrap_jaccard": _r(loc.bootstrap_jaccard),
                 "bootstrap_stable": (loc.bootstrap_jaccard is not None
                                      and loc.bootstrap_jaccard > 0.9),
+                # faithfulness AUTORITAIRE = held-out (paires jamais vues à la sélection) ;
+                # in-sample fourni pour transparence (anti-tautologie).
                 "faithfulness": _r(loc.faithfulness),
+                "faithfulness_basis": ("held_out" if loc.held_out else "in_sample"),
+                "faithfulness_insample": _r(loc.faithfulness_insample),
+                "n_select_pairs": loc.n_train,
+                "n_heldout_pairs": loc.n_test,
                 "cpr": _r(loc.cpr),
                 "cmd": _r(loc.cmd),
             },
+            "warnings": ([loc.holdout_warning] if loc.holdout_warning else []),
             "attribution_graph": self._graph(),
             "caveats": [
                 "DLA est CORRÉLATIONNELLE : hypothèses, jamais conclusion.",
@@ -141,9 +148,13 @@ class CircuitReport:
         L.append("VALIDATION :")
         L.append(f"  stabilité bootstrap (Jaccard) : {_fmt(v['bootstrap_jaccard'])} "
                  f"({'STABLE >0.9' if v['bootstrap_stable'] else 'INSTABLE ≤0.9'})")
-        L.append(f"  faithfulness : {_fmt(v['faithfulness'])}")
+        L.append(f"  faithfulness ({v['faithfulness_basis']}, autoritaire) : {_fmt(v['faithfulness'])}"
+                 f"  [sélection={v['n_select_pairs']} / held-out={v['n_heldout_pairs']} paires]")
+        L.append(f"    (in-sample, pour comparaison) : {_fmt(v['faithfulness_insample'])}")
         L.append(f"  CPR (circuit performance ratio) : {_fmt(v['cpr'])}")
         L.append(f"  CMD (circuit-model distance, 0=identique) : {_fmt(v['cmd'])}")
+        for w in d.get("warnings", []):
+            L.append(f"  ⚠ {w}")
         L.append("")
         L.append("AVERTISSEMENTS :")
         for c in d["caveats"]:

@@ -119,6 +119,43 @@ def test_localize_faithful_core_reaches_target_and_is_stable():
     assert loc.bootstrap_jaccard >= 0.9
 
 
+def test_split_pairs_train_test_disjoint_and_complete():
+    """Anti-tautologie : train ∩ test = ∅ (prouvé numériquement) et couvre tous les indices."""
+    from src.circuits.localize import split_pairs
+    tr, te = split_pairs(20, holdout_frac=0.5, seed=0)
+    assert set(tr) & set(te) == set()
+    assert sorted(tr + te) == list(range(20))
+    assert len(te) == 10 and len(tr) == 10
+
+
+def test_split_pairs_off_when_disabled():
+    from src.circuits.localize import split_pairs
+    assert split_pairs(20, holdout_frac=None) == (list(range(20)), list(range(20)))
+
+
+def test_localize_reports_heldout_faithfulness_with_negative_control():
+    """La faithfulness REPORTÉE est mesurée sur le held-out. Contrôle négatif permanent : le vrai
+    circuit y est élevé, un composant non-refus y est bas."""
+    from src.circuits.backend import TorchHookBackend
+    from src.circuits.localize import _circuit_metrics
+    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
+    be = TorchHookBackend(ControllableModel())
+    metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
+    h, n = harmful_ids(), harmless_ids()
+    pairs = [(h, n, None, None)] * 4
+    loc = localize(be, pairs, metric, controllable_refusal_dir(),
+                   threshold=0.5, n_boot=20, target_faithfulness=0.9,
+                   holdout_frac=0.5, min_holdout=5)
+    assert loc.n_train >= 1 and loc.n_test >= 1 and loc.n_train + loc.n_test == 4
+    assert set(loc.core) == {CAUSAL}
+    assert loc.faithfulness >= 0.9                      # vrai circuit, held-out
+    # contrôle négatif : un composant non lié au refus a une faithfulness held-out basse
+    noise_faith = _circuit_metrics(be, [NOISE], be.all_components(), pairs[:2], metric)[0]
+    assert noise_faith < 0.5
+    # test-set (2) < min_holdout (5) → WARNING explicite
+    assert loc.holdout_warning is not None
+
+
 def test_core_by_consensus_keeps_stable_lists_marginal():
     from src.circuits.localize import core_by_consensus
     freq = {CAUSAL: 1.0, NOISE: 0.45, MLP: 0.0}

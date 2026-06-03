@@ -35,8 +35,43 @@ def available_benchmarks() -> list[str]:
     return sorted(_BENCHMARKS)
 
 
-def run_benchmark(name: str, model, **kwargs):
-    """Lance un benchmark externe. Lève ValueError si inconnu, BenchmarkNotInstalled si absent."""
+# Métrique « phare » à extraire du dict de résultats lm-eval, par benchmark.
+_LM_EVAL_METRIC = {
+    "mmlu": "acc",
+    "gsm8k": "exact_match",
+    "bbh": "exact_match",
+    "gpqa": "acc",
+    "ifeval": "prompt_level_strict_acc",
+}
+
+
+def _pick_metric(results: dict, prefer: str) -> tuple[str, float]:
+    """Choisit la clé métrique (lm-eval suffixe par filtre, ex 'acc,none').
+
+    Pour gsm8k on privilégie le filtre 'flexible-extract' : 'strict-match' exige le format
+    '#### <nb>' que les modèles chat ne produisent pas (donne 0 à tort).
+    """
+    # priorité au bon filtre d'extraction quand plusieurs existent pour la même métrique.
+    for key, val in results.items():
+        base, _, flt = key.partition(",")
+        if base == prefer and flt == "flexible-extract" and isinstance(val, (int, float)):
+            return key, float(val)
+    for key, val in results.items():
+        if key.split(",")[0] == prefer and isinstance(val, (int, float)):
+            return key, float(val)
+    # repli : première métrique numérique non-stderr.
+    for key, val in results.items():
+        if "stderr" not in key and isinstance(val, (int, float)):
+            return key, float(val)
+    raise RuntimeError(f"aucune métrique numérique dans {results!r}")
+
+
+def run_benchmark(name: str, model, *, device=None, batch_size="auto", limit=None, **kwargs):
+    """Lance un benchmark externe et renvoie {benchmark, task, metric, score, n}.
+
+    `model` est un chemin/identifiant HF (lm-eval recharge le modèle ; quantif. mesure seulement,
+    poids livrés en bf16 — CLAUDE.md). `limit` restreint le nombre d'exemples (sous-ensemble rapide).
+    """
     if name not in _BENCHMARKS:
         raise ValueError(f"benchmark inconnu : {name!r}. Connus : {available_benchmarks()}")
     module, hint = _BENCHMARKS[name]
@@ -46,7 +81,28 @@ def run_benchmark(name: str, model, **kwargs):
         raise BenchmarkNotInstalled(
             f"Le benchmark '{name}' requiert le paquet '{module}' (absent). Installer : {hint}"
         ) from e
-    # Câblage réel à compléter selon l'API du harnais ; on échoue explicitement tant que non fait.
-    raise NotImplementedError(
-        f"Adaptateur '{name}' : '{module}' est installé mais le câblage runner n'est pas encore fait."
+
+    if module != "lm_eval":
+        raise NotImplementedError(
+            f"Adaptateur '{name}' : runner pour '{module}' non câblé (seul lm-eval l'est)."
+        )
+
+    import lm_eval
+
+    # `apply_chat_template=True` : indispensable pour un modèle instruct (sinon GSM8K/MMLU
+    # sous-estimés). Même réglage des deux côtés -> comparaison base vs abliteré valide.
+    model_args = f"pretrained={model},dtype=bfloat16,trust_remote_code=True"
+    out = lm_eval.simple_evaluate(
+        model="hf",
+        model_args=model_args,
+        tasks=[name],
+        batch_size=batch_size,
+        device=device,
+        limit=limit,
+        apply_chat_template=kwargs.get("apply_chat_template", True),
+        fewshot_as_multiturn=kwargs.get("fewshot_as_multiturn", False),
     )
+    task_results = out["results"][name]
+    metric_key, score = _pick_metric(task_results, _LM_EVAL_METRIC.get(name, "acc"))
+    n = out.get("n-samples", {}).get(name, {}).get("effective")
+    return {"benchmark": name, "task": name, "metric": metric_key, "score": score, "n": n}

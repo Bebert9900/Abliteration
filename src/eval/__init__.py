@@ -9,7 +9,21 @@ from .agentic import (
     schema_valid,
 )
 from .benchmarks import BenchmarkNotInstalled, available_benchmarks, run_benchmark
+from .generate import generate_responses, harmless_logits
+from .judges import is_sycophantic, negates_correctly
 from .kl import kl_divergence
+from .llm_judge import (
+    EVASIVE,
+    LABELS,
+    NON_REFUSAL,
+    REFUSAL,
+    RUBRIC_PROMPT,
+    LLMRefusalJudge,
+    evasive_rate,
+    label_counts,
+    llm_refusal_rate,
+    parse_label,
+)
 from .refusal import (
     KeywordRefusalJudge,
     degeneracy_rate,
@@ -31,6 +45,21 @@ __all__ = [
     "follow_rate",
     "empty_rate",
     "kl_divergence",
+    "generate_responses",
+    "harmless_logits",
+    "negates_correctly",
+    "is_sycophantic",
+    # juge LLM hors-ligne (re-classement des refus)
+    "LLMRefusalJudge",
+    "parse_label",
+    "label_counts",
+    "llm_refusal_rate",
+    "evasive_rate",
+    "RUBRIC_PROMPT",
+    "LABELS",
+    "REFUSAL",
+    "NON_REFUSAL",
+    "EVASIVE",
     # agentique
     "ToolCall",
     "parse_tool_call",
