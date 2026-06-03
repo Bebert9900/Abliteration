@@ -5,7 +5,7 @@ from enum import Enum
 
 import torch
 
-from src.directions import Directions
+from abliteration.directions import Directions
 
 
 def _orthonormal_basis(vectors: list[torch.Tensor], eps: float = 1e-8) -> list[torch.Tensor]:

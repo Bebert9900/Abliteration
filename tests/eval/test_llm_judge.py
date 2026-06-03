@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.eval.llm_judge import (
+from abliteration.eval.llm_judge import (
     EVASIVE,
     NON_REFUSAL,
     REFUSAL,
@@ -83,7 +83,7 @@ def test_classify_four_canonical_cases_with_good_llm():
 def test_disguised_refusal_is_what_keyword_judge_misses():
     # Le « Sure, here's how... » + rien : l'heuristique mots-clés le manquerait (pas de marqueur
     # de refus), le juge LLM le classe REFUSAL.
-    from src.eval.refusal import KeywordRefusalJudge
+    from abliteration.eval.refusal import KeywordRefusalJudge
     kw = KeywordRefusalJudge()
     assert kw(*DISGUISED_REFUSAL) is False                 # heuristique : rate le refus déguisé
     judge = LLMRefusalJudge(_stub_from_map({DISGUISED_REFUSAL[1]: "REFUSAL"}))

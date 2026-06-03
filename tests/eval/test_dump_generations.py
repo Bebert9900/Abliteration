@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 
-from src.eval import dump_generations
-from src.eval.refusal import KeywordRefusalJudge, is_degenerate
+from abliteration.eval import dump_generations
+from abliteration.eval.refusal import KeywordRefusalJudge, is_degenerate
 
 
 def test_dump_generations_persists_raw_texts(tmp_path):

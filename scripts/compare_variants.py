@@ -17,17 +17,21 @@ from pathlib import Path
 
 import torch
 
-from src.data import FourClassData, PromptClass, PromptFormatter
-from src.eval import (
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
+
+from abliteration.data import FourClassData, PromptClass, PromptFormatter
+from abliteration.eval import (
     KeywordRefusalJudge, agentic_score, degeneracy_rate, dump_generations, empty_rate,
     follow_rate, generate_responses, harmless_logits, is_sycophantic, kl_divergence,
     negates_correctly, negation_retention, parse_tool_call, refusal_rate, schema_valid,
 )
-from src.eval.refusal import is_degenerate
-from src.models import load_model
+from abliteration.eval.refusal import is_degenerate
+from abliteration.models import load_model
 
 BASE = "Qwen/Qwen2.5-3B-Instruct"
-MODELS = [("preserving", "out-3b-abl"), ("npb", "out-3b-npb")]
+MODELS = [("preserving", "artifacts/out-3b-abl"), ("npb", "artifacts/out-3b-npb")]
 MAX_NEW_H, MIN_NEW_H = 256, 64   # harmful : conditions de lecture (= référence preserving)
 MAX_NEW_CAP = 128                # négation/agentique : conditions de l'éval bi-axe
 
@@ -82,7 +86,7 @@ for tag, path in MODELS:
     # Harmful @256 -> lecture humaine + dégénérescence/vide/indice heuristique
     resp_h = generate_responses(model, fmt, harmful, max_new_tokens=MAX_NEW_H,
                                 min_new_tokens=MIN_NEW_H, batch_size=4)
-    dump_generations(f"rejudge_{tag}_generations.json", harmful, resp_h, judge=judge,
+    dump_generations(f"results/rejudge_{tag}_generations.json", harmful, resp_h, judge=judge,
                      degeneracy_check=is_degenerate, model=f"{path} ({tag})",
                      max_new_tokens=MAX_NEW_H, min_new_tokens=MIN_NEW_H,
                      note="Refus AUTORITAIRE = lecture humaine ; heuristic_refusal = indice.")
@@ -121,5 +125,5 @@ payload = {
                    "neg_agentic": {"max_new": MAX_NEW_CAP}},
     "results": results,
 }
-Path("compare_eval.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+Path("results/compare_eval.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
 print("\n[ok] compare_eval.json + rejudge_{preserving,npb}_generations.json écrits.")

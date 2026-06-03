@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import torch
 
-from src.models import ArchAdapter, WriteKind
+from abliteration.models import ArchAdapter, WriteKind
 
 
 def _orthogonalize_tensor(W: torch.Tensor, r: torch.Tensor, output_is_rows: bool, norm_preserve: bool):

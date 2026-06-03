@@ -1,5 +1,5 @@
 """Tests IO : sauvegarde du modèle et génération de model card transparente."""
-from src.io import build_model_card, save_model
+from abliteration.io import build_model_card, save_model
 
 
 class FakeModel:

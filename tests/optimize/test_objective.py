@@ -1,8 +1,8 @@
 """Tests de l'objectif composite et du checkpoint resume-safe."""
 import pytest
 
-from src.eval import EvalReport
-from src.optimize import (
+from abliteration.eval import EvalReport
+from abliteration.optimize import (
     Lambdas,
     best_trial,
     composite_objective,

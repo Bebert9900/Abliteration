@@ -26,8 +26,12 @@ from pathlib import Path
 
 import torch
 
-from src.data import FourClassData, PromptClass, PromptFormatter
-from src.eval import (
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
+
+from abliteration.data import FourClassData, PromptClass, PromptFormatter
+from abliteration.eval import (
     KeywordRefusalJudge,
     LLMRefusalJudge,
     evasive_rate,
@@ -36,11 +40,11 @@ from src.eval import (
     llm_refusal_rate,
     refusal_rate,
 )
-from src.eval.llm_judge import NON_REFUSAL, REFUSAL
-from src.models import load_model
+from abliteration.eval.llm_judge import NON_REFUSAL, REFUSAL
+from abliteration.models import load_model
 
 BASE_ID = "Qwen/Qwen2.5-3B-Instruct"
-ABL_DIR = "out-3b-abl"
+ABL_DIR = "artifacts/out-3b-abl"
 # Garde-fou anti-gaming : assez de tokens pour exposer un « Sure! » suivi de rien. On dépasse
 # largement le min_new_tokens=16 de la passe d'origine, qu'on signale dans le rapport.
 MAX_NEW_TOKENS = 256
@@ -93,8 +97,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dtype", default="bfloat16")
     ap.add_argument("--device", default="cuda")
-    ap.add_argument("--gen-out", default="rejudge_generations.json")
-    ap.add_argument("--report-out", default="rejudge_report.json")
+    ap.add_argument("--gen-out", default="results/rejudge_generations.json")
+    ap.add_argument("--report-out", default="results/rejudge_report.json")
     ap.add_argument("--reuse-gen", action="store_true",
                     help="Sauter la régénération si --gen-out existe déjà (re-juge seulement).")
     ns = ap.parse_args()

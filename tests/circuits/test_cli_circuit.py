@@ -4,7 +4,7 @@ Niveau parseur (comme tests/cli/test_cli.py) : on vérifie l'interface, pas l'ex
 vrai modèle (faite à la main en fin de phase). On vérifie aussi que analyze-circuit n'expose
 AUCUNE option de modification de poids (Phase 1 = lecture seule).
 """
-from src.cli import build_parser
+from abliteration.cli import build_parser
 
 
 def test_analyze_circuit_subcommand_exists():

@@ -10,8 +10,8 @@ composant top-rank dégrade le refus, et que le patching distingue causal de cor
 """
 import torch
 
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.patching import (
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.patching import (
     CausalVerdict,
     RefusalMetric,
     necessity,
@@ -127,8 +127,8 @@ def test_targeted_patch_only_changes_last_token():
     """
     import torch as _t
 
-    from src.circuits.backend import TorchHookBackend
-    from src.circuits.patching import targeted_patch_value
+    from abliteration.circuits.backend import TorchHookBackend
+    from abliteration.circuits.patching import targeted_patch_value
     from toymodel import make_model
 
     be = TorchHookBackend(make_model(0))
@@ -153,8 +153,8 @@ def test_targeted_patch_handles_unequal_lengths():
     """Cible et source de longueurs différentes : pas d'erreur, seul le dernier token compte."""
     import torch as _t
 
-    from src.circuits.backend import TorchHookBackend
-    from src.circuits.patching import targeted_patch_value
+    from abliteration.circuits.backend import TorchHookBackend
+    from abliteration.circuits.patching import targeted_patch_value
     from toymodel import make_model
 
     be = TorchHookBackend(make_model(0))

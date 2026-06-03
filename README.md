@@ -65,17 +65,29 @@ localise les matrices écrivant dans le residual stream **sans coder les noms de
 dur** (balayage `named_modules()`, matching par suffixe). Gère dense, MoE (un `down_proj`
 par expert + experts partagés) et Conv1D (GPT-2, axes transposés).
 
+Disposition du dépôt (layout professionnel) :
+
 ```
-src/
-├── cli.py        # point d'entrée : python -m src.cli <sous-commande>
-├── data/         # 4 classes contrastives, chat template, padding gauche, holdout
-├── models/       # chargement bf16 + ArchAdapter (introspection d'archi)
-├── directions/   # collecte d'activations, directions 4 classes, séparabilité, sélection
-├── ablation/     # project_out, variantes, orthogonalisation des poids, hooks réversibles
-├── eval/         # refus (heuristique + juge LLM hors-ligne), KL, négation, agentique, benchmarks, rapport bi-axe
-├── optimize/     # objectif composite + boucle Optuna TPE
-├── io/           # safetensors + model card transparente (+ export GGUF stub)
-└── heal.py       # réparation agentique post-abliteration (stub documenté)
+abliteration/         # le package Python (importable, testé)
+├── cli.py            # point d'entrée : python -m abliteration.cli <sous-commande>
+├── data/             # 4 classes contrastives, chat template, padding gauche, holdout déterministe
+├── models/           # chargement bf16 + ArchAdapter (introspection d'archi)
+├── directions/       # collecte d'activations, directions 4 classes, séparabilité, sélection
+├── ablation/         # project_out, variantes, orthogonalisation des poids, hooks réversibles
+├── eval/             # refus (heuristique + juge LLM hors-ligne), KL, négation, agentique, benchmarks
+├── circuits/         # analyse circuitielle (DLA + patching causal) — Phase 1, lecture seule
+├── optimize/         # objectif composite + boucle Optuna TPE
+├── io/               # safetensors + model card transparente (+ export GGUF stub)
+└── heal.py           # réparation agentique post-abliteration (stub documenté)
+
+scripts/              # scripts d'expérimentation/repro (run depuis la racine)
+│                     #   chat.py · run_benchmarks.py · rejudge_harmful.py · compare_variants.py
+tests/                # suite pytest (156 tests), miroir de l'arbo du package
+data/                 # les 4 fichiers de prompts (.txt au format JSONL)
+results/              # rapports de mesure suivis (JSON de scores) ; *_generations.json ignorés (harmful)
+artifacts/            # modèles abliteré produits (gitignoré — jamais de poids dans git)
+docs/                 # rapports d'expériences (privés, gitignorés)
+pyproject.toml        # déps + entry point console `abliterate`
 ```
 
 ### Flux de données
@@ -144,7 +156,7 @@ chemin local). Options communes : `--data-dir`, `--dtype` (défaut `bfloat16`), 
 ### Pipeline complet (consolidé)
 
 ```bash
-python -m src.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
+python -m abliteration.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
     --variant preserving \
     --preserve negation,agentic \
     --data-dir data \
@@ -159,13 +171,13 @@ le cadre responsable du projet.
 
 ```bash
 # 1. Calcule et sauvegarde les directions des 4 classes
-python -m src.cli extract <model> --data-dir data --out directions.pt
+python -m abliteration.cli extract <model> --data-dir data --out directions.pt
 
 # 2. Sélectionne la meilleure couche d'ablation (séparabilité)
-python -m src.cli select <model> --directions directions.pt
+python -m abliteration.cli select <model> --directions directions.pt
 
 # 3. Applique l'ablation orthogonalisée et sauvegarde le modèle
-python -m src.cli apply <model> --directions directions.pt \
+python -m abliteration.cli apply <model> --directions directions.pt \
     --variant preserving --preserve negation,agentic --layer 14 --out ./out
 ```
 
@@ -173,13 +185,13 @@ python -m src.cli apply <model> --directions directions.pt \
 
 ```bash
 # Inspecte la séparabilité r̂ vs n̂/â par couche — repère les couches à risque de débordement
-python -m src.cli diagnose <model> --directions directions.pt --layers 8-20
+python -m abliteration.cli diagnose <model> --directions directions.pt --layers 8-20
 ```
 
 ### Optimisation des poids λ (Optuna)
 
 ```bash
-python -m src.cli optimize <model> --trials 50 \
+python -m abliteration.cli optimize <model> --trials 50 \
     --lambda-kl 1.0 --lambda-neg 2.0 --lambda-syco 0.5 --lambda-agent 3.0
 ```
 
@@ -199,7 +211,7 @@ affichant un excellent (refus, KL) — d'où les termes étendus.
 ### Évaluation
 
 ```bash
-python -m src.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
+python -m abliteration.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
 ```
 
 Produit un **rapport bi-axe** :
@@ -219,7 +231,7 @@ permet de **re-classer après coup** les sorties déjà générées en `REFUSAL 
 ### Réparation agentique (`heal`)
 
 ```bash
-python -m src.cli heal ./out --traces traces.jsonl --n-traces 200
+python -m abliteration.cli heal ./out --traces traces.jsonl --n-traces 200
 ```
 
 À lancer **uniquement** si l'éval révèle un effondrement agentique résiduel malgré
@@ -262,7 +274,7 @@ Refus supprimé, capacités préservées, pas de lobotomie.
 ## 8. Tests
 
 ```bash
-pytest                    # 151 tests, ~4 s
+pytest                    # 156 tests, ~6 s
 pytest -m "not model"     # idem en sautant les tests qui chargent un vrai modèle
 ```
 
@@ -348,7 +360,7 @@ circule ». **Phase 1 = analyse seulement, AUCUNE modification de poids.**
 
 ```bash
 # Analyse circuitielle (lecture seule, produit un rapport) :
-python -m src.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
+python -m abliteration.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
     --pairs 16 --top-k 24 --threshold 0.5 --n-boot 300 --out rapport.json
 
 # Backend nnsight (parité DLA) — nécessite l'extra circuits :

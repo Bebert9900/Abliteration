@@ -1,7 +1,7 @@
 """Tests du parseur CLI : sous-commandes, --variant preserving, --preserve, diagnose, heal."""
 import pytest
 
-from src.cli import build_parser, parse_preserve
+from abliteration.cli import build_parser, parse_preserve
 
 
 def test_parse_preserve_splits_comma_list():

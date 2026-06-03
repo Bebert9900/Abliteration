@@ -1,7 +1,7 @@
 """Tests de collecte d'activations : pooling dernier token + moyenne par couche."""
 import torch
 
-from src.directions import collect_means, pooled_last_token
+from abliteration.directions import collect_means, pooled_last_token
 
 
 def test_pooled_last_token_selects_last_real_position_per_layer():

@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import torch
 
-from src.data.formatting import last_token_index
+from abliteration.data.formatting import last_token_index
 
 from .backend import CircuitBackend, Component, ComponentKind
 
@@ -33,7 +33,7 @@ CORRELATIONAL_CAVEAT = (
 
 
 def readout_direction(directions, layer: int) -> torch.Tensor:
-    """Extrait la direction de refus unitaire `r̂_layer` d'un objet `Directions` (src.directions).
+    """Extrait la direction de refus unitaire `r̂_layer` d'un objet `Directions` (abliteration.directions).
 
     On lit, on ne recalcule pas. La direction sert d'axe de lecture (readout) de la DLA.
     """

@@ -27,6 +27,6 @@ def heal(config: HealConfig):
     """Point d'entrée du fine-tuning de récupération agentique. NON implémenté (stub)."""
     raise NotImplementedError(
         "heal() est un stub documenté (TASK 6). À câbler : LoRA SFT sur ~100–300 traces de tool "
-        "use via peft/trl, puis ré-évaluer l'agentique (src.eval). Lancer uniquement si l'éval "
+        "use via peft/trl, puis ré-évaluer l'agentique (abliteration.eval). Lancer uniquement si l'éval "
         "montre un effondrement agentique résiduel après abliteration `preserving`."
     )

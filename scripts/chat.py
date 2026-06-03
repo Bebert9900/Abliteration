@@ -1,8 +1,8 @@
 """Chat interactif en ligne de commande avec un modèle HF (abliteré ou base).
 
 Usage :
-    python chat.py ./out-3b-abl          # le modèle abliteré
-    python chat.py Qwen/Qwen2.5-3B-Instruct   # le modèle de base
+    python scripts/chat.py ./out-3b-abl          # le modèle abliteré
+    python scripts/chat.py Qwen/Qwen2.5-3B-Instruct   # le modèle de base
 Commandes dans le chat : /reset (efface l'historique), /quit ou Ctrl-D pour sortir.
 """
 import sys
@@ -10,7 +10,7 @@ import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_path = sys.argv[1] if len(sys.argv) > 1 else "./out-3b-abl"
+model_path = sys.argv[1] if len(sys.argv) > 1 else "./artifacts/out-3b-abl"
 
 print(f"Chargement de {model_path} …", flush=True)
 tok = AutoTokenizer.from_pretrained(model_path)

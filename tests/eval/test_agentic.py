@@ -1,5 +1,5 @@
 """Tests des métriques agentiques : parsing tool call, validité schéma (AST), args, score."""
-from src.eval import (
+from abliteration.eval import (
     ToolCall,
     agentic_score,
     arg_accuracy,

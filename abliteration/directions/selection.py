@@ -1,6 +1,6 @@
 """Sélection de la couche d'ablation.
 
-La sélection réelle pose un hook d'ablation réversible (cf. src.ablation) à chaque couche
+La sélection réelle pose un hook d'ablation réversible (cf. abliteration.ablation) à chaque couche
 candidate et mesure le refus ; on garde la couche qui le minimise (couches milieu→milieu-tardif
 en général, KB §2.1). Ici on découple la stratégie de la mesure via une `score_fn` injectée.
 """

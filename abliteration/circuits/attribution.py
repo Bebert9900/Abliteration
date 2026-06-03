@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import torch
 
-from src.data.formatting import last_token_index
+from abliteration.data.formatting import last_token_index
 
 from .backend import Component, TorchHookBackend
 

@@ -10,7 +10,7 @@ Le modèle jouet vit dans `toymodel.py` (module frère, partagé avec les autres
 """
 import torch
 
-from src.circuits.backend import (
+from abliteration.circuits.backend import (
     Component,
     ComponentKind,
     ModelInfo,

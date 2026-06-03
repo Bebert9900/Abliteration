@@ -7,8 +7,8 @@ définition, calculée indépendamment du code testé.
 """
 import torch
 
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.dla import (
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.dla import (
     CORRELATIONAL_CAVEAT,
     DLAResult,
     direct_logit_attribution,

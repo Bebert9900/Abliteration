@@ -18,6 +18,7 @@ env/
 .env
 
 # Modèles & artefacts lourds (ne jamais committer de poids)
+# `artifacts/` = modèles abliteré produits (out-3b-abl, out-3b-npb, …) — local seulement.
 out/
 out*/
 outputs/

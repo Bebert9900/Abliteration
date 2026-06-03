@@ -7,15 +7,15 @@ exact (la contre-vérification exigée par le skill).
 """
 import torch
 
-from src.circuits.attribution import (
+from abliteration.circuits.attribution import (
     ATTRIBUTION_CAVEAT,
     AttributionResult,
     aggregate_attribution,
     agreement_with_exact,
     attribution_patching,
 )
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.patching import RefusalMetric, necessity
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.patching import RefusalMetric, necessity
 from toymodel import (
     ControllableModel,
     controllable_refusal_dir,

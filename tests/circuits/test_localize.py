@@ -8,14 +8,14 @@ Le modèle contrôlable a un core connu = {tête (0,0)}. On vérifie que `locali
 """
 import torch
 
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.localize import (
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.localize import (
     ComponentEvidence,
     bootstrap_stability,
     jaccard,
     localize,
 )
-from src.circuits.patching import RefusalMetric
+from abliteration.circuits.patching import RefusalMetric
 from toymodel import (
     ControllableModel,
     controllable_refusal_dir,
@@ -57,7 +57,7 @@ def test_bootstrap_drops_when_core_unstable():
 def test_selection_frequencies_separate_stable_from_borderline():
     """CAUSAL passe le seuil dans toutes les paires → fréquence ~1 ; NOISE seulement la moitié
     → fréquence intermédiaire (instable)."""
-    from src.circuits.localize import selection_frequencies
+    from abliteration.circuits.localize import selection_frequencies
     per_pair = [
         {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 1.0, 1.0)},   # NOISE passe
         {CAUSAL: (1.0, 1.0, 1.0), NOISE: (0.0, 0.0, 0.0)},   # NOISE échoue
@@ -72,7 +72,7 @@ def test_selection_frequencies_separate_stable_from_borderline():
 def test_greedy_faithful_core_grows_to_minimal_faithful_set():
     """RC2 corrigé : le core = plus petit préfixe (par force causale) dont la faithfulness
     atteint la cible. Un seuil dur AND knife-edge scinde un vrai circuit à 2 têtes."""
-    from src.circuits.localize import greedy_faithful_core
+    from abliteration.circuits.localize import greedy_faithful_core
     ranked = [CAUSAL, NOISE, MLP]
     fmap = {(CAUSAL,): 0.44, (CAUSAL, NOISE): 1.0}   # k=1 insuffisant, k=2 explique tout
     core, k = greedy_faithful_core(ranked, lambda c: fmap.get(tuple(c), 1.0), target=0.9)
@@ -84,7 +84,7 @@ def test_extend_through_ties_absorbs_near_equal_then_stops_at_gap():
     """Le core faithful minimal coupe parfois au milieu d'une quasi-égalité causale (L15H9≈L15MLP),
     ce qui rend le membership instable. On étend à travers les quasi-égalités jusqu'au prochain
     gap de nécessité → core stable."""
-    from src.circuits.localize import extend_through_ties
+    from abliteration.circuits.localize import extend_through_ties
     ranked = ["a", "b", "c", "d"]
     necs = {"a": 0.56, "b": 0.51, "c": 0.46, "d": 0.23}
     # c (0.46) ≥ 0.85·0.51 = 0.43 → absorbé ; d (0.23) < 0.85·0.46 = 0.39 → stop
@@ -92,21 +92,21 @@ def test_extend_through_ties_absorbs_near_equal_then_stops_at_gap():
 
 
 def test_extend_through_ties_no_extension_past_nonpositive_or_gap():
-    from src.circuits.localize import extend_through_ties
+    from abliteration.circuits.localize import extend_through_ties
     ranked = ["a", "b", "c"]
     necs = {"a": 1.0, "b": 0.0, "c": -0.2}   # b n'est pas une quasi-égalité de a
     assert extend_through_ties(ranked, necs, k_start=1, tie_ratio=0.85) == 1
 
 
 def test_greedy_faithful_core_stops_at_k1_when_enough():
-    from src.circuits.localize import greedy_faithful_core
+    from abliteration.circuits.localize import greedy_faithful_core
     core, k = greedy_faithful_core([CAUSAL, NOISE], lambda c: 1.0, target=0.9)
     assert core == [CAUSAL]
     assert k == 1
 
 
 def test_localize_faithful_core_reaches_target_and_is_stable():
-    from src.circuits.backend import TorchHookBackend
+    from abliteration.circuits.backend import TorchHookBackend
     from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
     be = TorchHookBackend(ControllableModel())
     metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
@@ -121,7 +121,7 @@ def test_localize_faithful_core_reaches_target_and_is_stable():
 
 def test_split_pairs_train_test_disjoint_and_complete():
     """Anti-tautologie : train ∩ test = ∅ (prouvé numériquement) et couvre tous les indices."""
-    from src.circuits.localize import split_pairs
+    from abliteration.circuits.localize import split_pairs
     tr, te = split_pairs(20, holdout_frac=0.5, seed=0)
     assert set(tr) & set(te) == set()
     assert sorted(tr + te) == list(range(20))
@@ -129,15 +129,15 @@ def test_split_pairs_train_test_disjoint_and_complete():
 
 
 def test_split_pairs_off_when_disabled():
-    from src.circuits.localize import split_pairs
+    from abliteration.circuits.localize import split_pairs
     assert split_pairs(20, holdout_frac=None) == (list(range(20)), list(range(20)))
 
 
 def test_localize_reports_heldout_faithfulness_with_negative_control():
     """La faithfulness REPORTÉE est mesurée sur le held-out. Contrôle négatif permanent : le vrai
     circuit y est élevé, un composant non-refus y est bas."""
-    from src.circuits.backend import TorchHookBackend
-    from src.circuits.localize import _circuit_metrics
+    from abliteration.circuits.backend import TorchHookBackend
+    from abliteration.circuits.localize import _circuit_metrics
     from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
     be = TorchHookBackend(ControllableModel())
     metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
@@ -157,7 +157,7 @@ def test_localize_reports_heldout_faithfulness_with_negative_control():
 
 
 def test_core_by_consensus_keeps_stable_lists_marginal():
-    from src.circuits.localize import core_by_consensus
+    from abliteration.circuits.localize import core_by_consensus
     freq = {CAUSAL: 1.0, NOISE: 0.45, MLP: 0.0}
     core, marginal = core_by_consensus(freq, consensus_frac=0.8)
     assert core == {CAUSAL}
@@ -170,7 +170,7 @@ def test_localize_consensus_excludes_borderline_and_is_more_stable():
     rend un core stable (Jaccard ~1) et relègue la borderline en `marginal`."""
     import torch as _t
 
-    from src.circuits.backend import TorchHookBackend
+    from abliteration.circuits.backend import TorchHookBackend
     from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
 
     be = TorchHookBackend(ControllableModel())
@@ -206,7 +206,7 @@ def test_localize_does_not_promote_on_dla_alone():
 
     On falsifie l'évidence : NOISE reçoit une grosse DLA mais nec/suf nuls.
     """
-    from src.circuits.localize import _core_from_evidence
+    from abliteration.circuits.localize import _core_from_evidence
     ev = {
         CAUSAL: ComponentEvidence(CAUSAL, dla=0.01, necessity=1.0, sufficiency=1.0),
         NOISE: ComponentEvidence(NOISE, dla=999.0, necessity=0.0, sufficiency=0.0),
