@@ -1,12 +1,24 @@
 """Prompt, chargement de fichiers, et découpage holdout déterministe par classe."""
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .classes import PromptClass
+
+
+def _class_seed(seed: int, klass: PromptClass) -> int:
+    """Décalage de graine par classe, DÉTERMINISTE entre processus.
+
+    ⚠️ Ne PAS utiliser le `hash()` builtin : il est randomisé par processus (PYTHONHASHSEED),
+    ce qui rendait le holdout non reproductible d'un run à l'autre (splits différents → toute
+    comparaison de refus/préservation entre variantes était invalide). On hashe via hashlib.
+    """
+    digest = hashlib.sha256(klass.value.encode("utf-8")).digest()
+    return seed + int.from_bytes(digest[:4], "big") % 1000
 
 
 @dataclass(frozen=True)
@@ -41,7 +53,7 @@ class FourClassData:
         for klass in PromptClass:
             prompts = load_prompts(paths[klass], klass)
             # seed décalé par classe : découpages indépendants mais reproductibles.
-            tr, ho = split_holdout(prompts, holdout_fraction, seed + hash(klass.value) % 1000)
+            tr, ho = split_holdout(prompts, holdout_fraction, _class_seed(seed, klass))
             train[klass], holdout[klass] = tr, ho
         return cls(_train=train, _holdout=holdout)
 

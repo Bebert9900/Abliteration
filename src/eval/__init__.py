@@ -9,7 +9,7 @@ from .agentic import (
     schema_valid,
 )
 from .benchmarks import BenchmarkNotInstalled, available_benchmarks, run_benchmark
-from .generate import generate_responses, harmless_logits
+from .generate import dump_generations, generate_responses, harmless_logits
 from .judges import is_sycophantic, negates_correctly
 from .kl import kl_divergence
 from .llm_judge import (
@@ -47,6 +47,7 @@ __all__ = [
     "kl_divergence",
     "generate_responses",
     "harmless_logits",
+    "dump_generations",
     "negates_correctly",
     "is_sycophantic",
     # juge LLM hors-ligne (re-classement des refus)

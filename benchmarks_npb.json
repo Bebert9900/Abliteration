@@ -1,0 +1,16 @@
+{
+  "mmlu": {
+    "benchmark": "mmlu",
+    "task": "mmlu",
+    "metric": "acc,none",
+    "score": 0.6105263157894737,
+    "n": null
+  },
+  "gsm8k": {
+    "benchmark": "gsm8k",
+    "task": "gsm8k",
+    "metric": "exact_match,flexible-extract",
+    "score": 0.52,
+    "n": 50
+  }
+}

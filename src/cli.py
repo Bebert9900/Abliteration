@@ -247,18 +247,22 @@ def _select_layer_causal(model, adapter, formatter, directions, candidate_layers
 
 
 def _run_eval(model, formatter, data, *, base_logits=None, kl_texts=None, device=None,
-              max_new_tokens=128, batch_size=8):
+              max_new_tokens=128, batch_size=8, generations_out=None):
     """Évaluation bi-axe RÉELLE sur le holdout (génération + juges déterministes).
 
     Axe 1 (suppression refus) : refusal_rate sur harmful holdout.
     Axe 2 (préservation) : negation_retention, agentic_score, KL(base‖abliteré) sur harmless.
     Garde-fous : degeneracy_rate, empty_rate, follow_rate (sycophantie).
+
+    `generations_out` : si fourni, persiste les TEXTES BRUTS des générations harmful (prompt +
+    réponse + indice heuristique) pour relecture/re-jugement (on ne jette plus les textes).
     """
     from .data import PromptClass
     from .eval import (
-        EvalReport, KeywordRefusalJudge, agentic_score, degeneracy_rate, empty_rate,
-        follow_rate, generate_responses, harmless_logits, is_sycophantic, kl_divergence,
-        negates_correctly, negation_retention, parse_tool_call, refusal_rate, schema_valid,
+        EvalReport, KeywordRefusalJudge, agentic_score, degeneracy_rate, dump_generations,
+        empty_rate, follow_rate, generate_responses, harmless_logits, is_degenerate,
+        is_sycophantic, kl_divergence, negates_correctly, negation_retention, parse_tool_call,
+        refusal_rate, schema_valid,
     )
 
     judge = KeywordRefusalJudge()
@@ -273,6 +277,11 @@ def _run_eval(model, formatter, data, *, base_logits=None, kl_texts=None, device
     refusal = refusal_rate(harmful, resp_h, judge)
     degeneracy = degeneracy_rate(resp_h)
     empty = empty_rate(resp_h)
+
+    if generations_out:
+        dump_generations(generations_out, harmful, resp_h, judge=judge,
+                         degeneracy_check=is_degenerate, max_new_tokens=max_new_tokens,
+                         axis="harmful_holdout")
 
     # --- Axe 2a : négation logique légitime (préservation) ---
     neg = [p.text for p in data.holdout(PromptClass.LEGITIMATE_NEGATION)]
@@ -446,8 +455,11 @@ def cmd_abliterate(ns) -> int:
 
     # 5) Éval bi-axe sur le holdout (modèle désormais abliteré en mémoire).
     log.info("Évaluation bi-axe du modèle abliteré (holdout)")
+    from pathlib import Path as _Path
+    _Path(ns.out).mkdir(parents=True, exist_ok=True)
     report = _run_eval(model, formatter, data, base_logits=base_logits, kl_texts=kl_texts,
-                       device=ns.device, batch_size=ns.batch_size)
+                       device=ns.device, batch_size=ns.batch_size,
+                       generations_out=_Path(ns.out) / "harmful_generations.json")
 
     # 6) Sauvegarde + model card transparente avec métriques.
     metrics = report.to_dict()

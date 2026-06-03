@@ -6,7 +6,31 @@ tokens générés (pas le prompt) pour que les juges (refus, négation, tool-cal
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import torch
+
+
+def dump_generations(path, prompts, responses, *, judge=None, degeneracy_check=None, **meta):
+    """Persiste les générations brutes (prompt + réponse) pour relecture/re-jugement hors-ligne.
+
+    Recommandation de la passe de re-jugement : ne JAMAIS jeter les textes bruts (on ne peut pas
+    re-juger des scores). Un enregistrement par cas, numéroté, aligné sur l'ordre du holdout.
+    `judge`/`degeneracy_check` (optionnels) ajoutent un INDICE heuristique par cas — jamais une
+    vérité (cf. RAPPORT : le 0 % heuristique sous-estime, le juge LLM 3B est cassé).
+    """
+    records = []
+    for i, (p, r) in enumerate(zip(prompts, responses)):
+        rec = {"idx": i, "prompt": p, "response": r}
+        if judge is not None:
+            rec["heuristic_refusal"] = bool(judge(p, r))
+        if degeneracy_check is not None:
+            rec["degenerate"] = bool(degeneracy_check(r))
+        records.append(rec)
+    payload = {"n": len(records), **meta, "records": records}
+    Path(path).write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    return payload
 
 
 def _chunks(seq, size):
