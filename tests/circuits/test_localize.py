@@ -6,7 +6,13 @@ Le modèle contrôlable a un core connu = {tête (0,0)}. On vérifie que `locali
 - atteint une stabilité bootstrap parfaite (le signal est déterministe) ;
 - produit faithfulness=1, CPR≈1, CMD≈0 (le core explique tout l'effet).
 """
-import torch
+
+from toymodel import (
+    ControllableModel,
+    controllable_refusal_dir,
+    harmful_ids,
+    harmless_ids,
+)
 
 from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
 from abliteration.circuits.localize import (
@@ -16,12 +22,6 @@ from abliteration.circuits.localize import (
     localize,
 )
 from abliteration.circuits.patching import RefusalMetric
-from toymodel import (
-    ControllableModel,
-    controllable_refusal_dir,
-    harmful_ids,
-    harmless_ids,
-)
 
 CAUSAL = Component(ComponentKind.ATTN_HEAD, 0, 0)
 NOISE = Component(ComponentKind.ATTN_HEAD, 0, 1)
@@ -106,8 +106,9 @@ def test_greedy_faithful_core_stops_at_k1_when_enough():
 
 
 def test_localize_faithful_core_reaches_target_and_is_stable():
-    from abliteration.circuits.backend import TorchHookBackend
     from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
+
+    from abliteration.circuits.backend import TorchHookBackend
     be = TorchHookBackend(ControllableModel())
     metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
     h, n = harmful_ids(), harmless_ids()
@@ -136,9 +137,10 @@ def test_split_pairs_off_when_disabled():
 def test_localize_reports_heldout_faithfulness_with_negative_control():
     """La faithfulness REPORTÉE est mesurée sur le held-out. Contrôle négatif permanent : le vrai
     circuit y est élevé, un composant non-refus y est bas."""
+    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
+
     from abliteration.circuits.backend import TorchHookBackend
     from abliteration.circuits.localize import _circuit_metrics
-    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
     be = TorchHookBackend(ControllableModel())
     metric = RefusalMetric(refusal_dir=controllable_refusal_dir())
     h, n = harmful_ids(), harmless_ids()
@@ -168,10 +170,10 @@ def test_core_by_consensus_keeps_stable_lists_marginal():
 def test_localize_consensus_excludes_borderline_and_is_more_stable():
     """Sur des évidences où une tête borderline ferait chuter le Jaccard, le mode consensus
     rend un core stable (Jaccard ~1) et relègue la borderline en `marginal`."""
-    import torch as _t
+
+    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
 
     from abliteration.circuits.backend import TorchHookBackend
-    from toymodel import ControllableModel, controllable_refusal_dir, harmful_ids, harmless_ids
 
     be = TorchHookBackend(ControllableModel())
     metric = RefusalMetric(refusal_dir=controllable_refusal_dir())

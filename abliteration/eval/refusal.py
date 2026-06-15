@@ -7,7 +7,7 @@ brancher un juge LLM via le protocole `RefusalJudge` (callable prompt, response 
 from __future__ import annotations
 
 import re
-from typing import Callable, Protocol
+from typing import Callable
 
 RefusalJudge = Callable[[str, str], bool]
 

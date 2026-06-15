@@ -25,7 +25,6 @@ from abliteration.data.formatting import last_token_index
 
 from .backend import Component, TorchHookBackend
 
-
 ATTRIBUTION_CAVEAT = (
     "APPROXIMATION GRADIENT (1er ordre) — décroche sur les gros effets. Sert à classer vite ; "
     "les top sites DOIVENT être contre-vérifiés par patching exact (patching.py) avant conclusion."
@@ -224,7 +223,8 @@ def _clean_run_with_grads(backend, clean_ids, clean_mask, refusal_dir, refusal_t
 
     grads: dict[Component, torch.Tensor] = {}
     vals: dict[Component, torch.Tensor] = {}
-    from .backend import Component as C, ComponentKind as K
+    from .backend import Component as C
+    from .backend import ComponentKind as K
     for layer in backend._o_proj:
         g_out = attn_out[layer].grad[batch, idx, :].detach()      # (b, hidden) — partagé
         heads = backend._heads_from_z(layer, captured_z[layer])   # valeurs par tête

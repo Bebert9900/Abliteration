@@ -1,5 +1,4 @@
 """Tests de la préparation de données du healing (LoRA SFT) — sans GPU ni dépendances lourdes."""
-import json
 
 import pytest
 

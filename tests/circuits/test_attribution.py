@@ -6,6 +6,13 @@ vérifie aussi que l'attribution classe la tête causale en tête et s'accorde a
 exact (la contre-vérification exigée par le skill).
 """
 import torch
+from toymodel import (
+    ControllableModel,
+    controllable_refusal_dir,
+    harmful_ids,
+    harmless_ids,
+    make_model,
+)
 
 from abliteration.circuits.attribution import (
     ATTRIBUTION_CAVEAT,
@@ -16,13 +23,6 @@ from abliteration.circuits.attribution import (
 )
 from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
 from abliteration.circuits.patching import RefusalMetric, necessity
-from toymodel import (
-    ControllableModel,
-    controllable_refusal_dir,
-    harmful_ids,
-    harmless_ids,
-    make_model,
-)
 
 CAUSAL = Component(ComponentKind.ATTN_HEAD, 0, 0)
 NOISE = Component(ComponentKind.ATTN_HEAD, 0, 1)

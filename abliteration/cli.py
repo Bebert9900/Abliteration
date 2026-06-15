@@ -434,9 +434,20 @@ def _run_eval(model, formatter, data, *, base_logits=None, kl_texts=None, device
         return seq[:eval_limit] if eval_limit else seq
     from .data import PromptClass
     from .eval import (
-        EvalReport, KeywordRefusalJudge, degeneracy_rate, dump_generations,
-        empty_rate, evaluate_agentic_outputs, follow_rate, generate_responses, harmless_logits,
-        is_degenerate, is_sycophantic, kl_divergence, negates_correctly, negation_retention,
+        EvalReport,
+        KeywordRefusalJudge,
+        degeneracy_rate,
+        dump_generations,
+        empty_rate,
+        evaluate_agentic_outputs,
+        follow_rate,
+        generate_responses,
+        harmless_logits,
+        is_degenerate,
+        is_sycophantic,
+        kl_divergence,
+        negates_correctly,
+        negation_retention,
         refusal_rate,
     )
 
@@ -502,7 +513,7 @@ def cmd_extract(ns) -> int:
     import torch
 
     from .data import PromptClass, PromptFormatter
-    from .directions import collect_means, compute_directions
+    from .directions import compute_directions
     from .models import load_model
 
     log.info("Chargement du modèle %s", ns.model)
@@ -575,7 +586,6 @@ def cmd_abliterate(ns) -> int:
     extract (directions sur train) → select (couche par ablation causale) → KL base →
     orthogonalisation des poids → éval bi-axe holdout → sauvegarde + model card.
     """
-    import json
 
     from .ablation import Variant, ablation_direction, orthogonalize_weights
     from .data import PromptClass, PromptFormatter
@@ -647,10 +657,9 @@ def cmd_optimize(ns) -> int:
     """
     from .ablation import Variant, ablation_direction, register_ablation_hooks
     from .data import PromptClass, PromptFormatter
-    from .directions import collect_means, compute_directions
-    from .eval import harmless_logits
+    from .directions import compute_directions
     from .models import ArchAdapter, WriteKind, load_model
-    from .optimize import Lambdas, build_objective, load_trials, run_optuna_study
+    from .optimize import Lambdas, build_objective, run_optuna_study
 
     lambdas = Lambdas(kl=ns.lambda_kl, negation=ns.lambda_neg,
                       sycophancy=ns.lambda_syco, agentic=ns.lambda_agent)
@@ -855,6 +864,7 @@ def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
     AUCUNE modification de poids. Renvoie un CircuitReport.
     """
     import os
+
     import torch
 
     # Déterminisme : tue le flip run-to-run dû au non-déterminisme matmul GPU (à régler AVANT
@@ -868,19 +878,16 @@ def _run_circuit_analysis(ns, n_pairs, top_k, compute_metrics):
     except Exception:
         pass
 
+    from pathlib import Path
+
     from .circuits import make_backend
-    from .circuits.attribution import aggregate_attribution
     from .circuits.dla import direct_logit_attribution, readout_direction
     from .circuits.localize import localize
     from .circuits.patching import RefusalMetric
     from .circuits.report import CircuitReport
-    from .data import PromptClass, PromptFormatter
+    from .data import PromptClass, PromptFormatter, load_prompts
     from .directions import collect_means, compute_directions
     from .models import load_model
-
-    from pathlib import Path
-
-    from .data import load_prompts
 
     model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
     formatter = PromptFormatter(tok)

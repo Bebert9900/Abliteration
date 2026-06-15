@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from abliteration.data import FourClassData, PromptClass, Prompt, load_prompts, split_holdout
+from abliteration.data import FourClassData, Prompt, PromptClass, load_prompts, split_holdout
 
 
 def _prompts(n, cls=PromptClass.HARMFUL):

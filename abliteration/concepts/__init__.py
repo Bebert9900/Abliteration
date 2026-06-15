@@ -10,13 +10,13 @@ from .concept import (
     concept_direction,
     direction_from_means,
 )
+from .probing import ProbeReport, probe_per_layer, train_linear_probe
 from .registry import (
     BUILTIN_CONCEPTS,
     available_concepts,
     load_concept,
     load_concept_from_files,
 )
-from .probing import ProbeReport, probe_per_layer, train_linear_probe
 from .separability import SeparabilityMatrix, pairwise_separability
 
 __all__ = [

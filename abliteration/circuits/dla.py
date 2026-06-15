@@ -1,7 +1,7 @@
 """Direct Logit Attribution (DLA) — méthode 1/3, CORRÉLATIONNELLE.
 
 Projette la contribution residual-espace de CHAQUE composant (tête, MLP) sur la direction de
-refus `r̂` (réutilisée depuis `src/directions/`, jamais recalculée ici). Donne « qui contribue »
+refus `r̂` (réutilisée depuis `abliteration/directions/`, jamais recalculée ici). Donne « qui contribue »
 au refus, par projection scalaire au dernier token de l'instruction.
 
 ⚠️ RÈGLE D'OR (skill abliteration-circuits) : la DLA GÉNÈRE DES HYPOTHÈSES, elle ne conclut

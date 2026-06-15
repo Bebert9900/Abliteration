@@ -6,6 +6,8 @@ exactement la projection de sa contribution residual-espace sur r̂ au dernier t
 définition, calculée indépendamment du code testé.
 """
 import torch
+from toymodel import ids as _ids
+from toymodel import make_model
 
 from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
 from abliteration.circuits.dla import (
@@ -14,7 +16,6 @@ from abliteration.circuits.dla import (
     direct_logit_attribution,
     readout_direction,
 )
-from toymodel import ToyModel, ids as _ids, make_model
 
 
 def _backend(seed=0):

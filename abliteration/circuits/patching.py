@@ -27,7 +27,6 @@ jamais sur la DLA seule (règle d'or).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import torch
 

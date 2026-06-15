@@ -9,6 +9,8 @@ Invariants vérifiés sur un modèle jouet Llama-like RÉEL (structure que ArchA
 Le modèle jouet vit dans `toymodel.py` (module frère, partagé avec les autres tests circuits).
 """
 import torch
+from toymodel import ids as _ids
+from toymodel import make_model as _model
 
 from abliteration.circuits.backend import (
     Component,
@@ -17,7 +19,6 @@ from abliteration.circuits.backend import (
     Patch,
     TorchHookBackend,
 )
-from toymodel import ToyModel, ids as _ids, make_model as _model
 
 
 # --------------------------------------------------------------------------- #

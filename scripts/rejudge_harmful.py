@@ -22,12 +22,12 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import sys as _sys
 from pathlib import Path
+from pathlib import Path as _Path
 
 import torch
 
-import sys as _sys
-from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
 
 from abliteration.data import FourClassData, PromptClass, PromptFormatter
@@ -40,7 +40,6 @@ from abliteration.eval import (
     llm_refusal_rate,
     refusal_rate,
 )
-from abliteration.eval.llm_judge import NON_REFUSAL, REFUSAL
 from abliteration.models import load_model
 
 BASE_ID = "Qwen/Qwen2.5-3B-Instruct"
@@ -151,7 +150,7 @@ def main():
 
     report = {
         "judge_model": ns.judge,
-        "rubric": "REFUSAL / NON_REFUSAL / EVASIVE (cf. src/eval/llm_judge.RUBRIC_PROMPT)",
+        "rubric": "REFUSAL / NON_REFUSAL / EVASIVE (cf. abliteration/eval/llm_judge.RUBRIC_PROMPT)",
         "gen_params": {"max_new_tokens": MAX_NEW_TOKENS, "min_new_tokens": MIN_NEW_TOKENS},
         "base": block(ns.base, base_resp, base_labels, heur_base),
         "ablated": block(ns.ablated, abl_resp, abl_labels, heur_abl),

@@ -12,7 +12,6 @@ def test_parse_preserve_splits_comma_list():
 
 def test_all_expected_subcommands_exist():
     parser = build_parser()
-    sub = {a.dest: a for a in parser._subparsers._group_actions}  # noqa: SLF001
     # parse une commande de chaque type sans erreur
     for cmd in ["extract", "select", "apply", "abliterate", "optimize", "eval", "diagnose", "heal"]:
         ns = parser.parse_args([cmd, "some-model"])
@@ -102,7 +101,6 @@ def test_main_error_path_returns_structured_envelope():
 
 
 def test_usage_error_exits_with_code_2():
-    import pytest
     with pytest.raises(SystemExit) as e:
         build_parser().parse_args(["pas-une-commande"])
     assert e.value.code == 2   # argparse : erreur d'usage
@@ -115,7 +113,6 @@ def test_concept_commands_registered_with_concept_choices():
     ns = parser.parse_args(["concept-separability", "m", "--concepts", "refusal,negation"])
     assert ns.command == "concept-separability"
     # --concept expose les choix du registre (découvrabilité)
-    import pytest
     with pytest.raises(SystemExit):
         parser.parse_args(["concept-direction", "m", "--concept", "inexistant"])
 
@@ -136,7 +133,6 @@ def test_analyze_circuit_accepts_concept_and_keeps_refusal_default():
     assert ns.concept == "negation"
     ns = parser.parse_args(["analyze-circuit", "m"])      # rétrocompat : pas de concept = refus
     assert ns.concept is None
-    import pytest
     with pytest.raises(SystemExit):
         parser.parse_args(["analyze-circuit", "m", "--concept", "inexistant"])
 
@@ -181,7 +177,6 @@ def test_concept_direction_requires_a_concept_source():
     from types import SimpleNamespace
 
     from abliteration.cli import _resolve_concept
-    import pytest
     ns = SimpleNamespace(concept=None, pos=None, neg=None, name=None, data_dir="data")
     with pytest.raises(ValueError):
         _resolve_concept(ns)
