@@ -1,6 +1,6 @@
 # Abliteration préservante
 
-Outil d'abliteration (directional ablation) pour modèles de langage HuggingFace. Il retire la
+Outil d'abliteration (directional ablation) pour LLM. Il retire la
 direction de refus d'un modèle sans réentraînement, en cherchant à préserver deux capacités
 qu'une abliteration naïve dégrade : la négation logique (« non, ce code est faux ») et les
 capacités agentiques (appels d'outils, sorties structurées, raisonnement multi-étapes).
