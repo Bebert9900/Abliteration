@@ -71,5 +71,5 @@ python -m abliteration.cli abliterate Qwen/Qwen2.5-3B-Instruct \
 
 - Les modules lourds (transformers, torch) sont chargés paresseusement : `schema` et la
   validation d'arguments fonctionnent sans GPU ni gros modèle.
-- Conventions et garde-fous d'évaluation : voir `CLAUDE.md` (holdout, `min_new_tokens`,
-  juge LLM, deux axes refus/préservation).
+- Conventions et garde-fous d'évaluation (holdout, `min_new_tokens`, juge LLM, deux axes
+  refus/préservation) : voir le README, section « Évaluation ».
