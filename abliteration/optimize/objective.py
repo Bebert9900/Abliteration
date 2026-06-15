@@ -9,7 +9,7 @@
 Justification des termes étendus : ni la KL ni le taux de refus ne capturent la perte
 agentique ou la perte de négation légitime. Sans λ_agent, l'optimiseur peut livrer un modèle
 qui hallucine ses tool calls tout en affichant un excellent (refus, KL). Les λ sont exposés en
-config ; défauts à 1.0 (compromis neutre, à régler selon le front de Pareto, KB §8.4).
+config ; défauts à 1.0 (compromis neutre, à régler selon le front de Pareto).
 """
 from __future__ import annotations
 

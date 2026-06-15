@@ -1,6 +1,6 @@
 """Juges automatiques légers pour l'axe préservation (négation logique, sycophantie).
 
-Le CLAUDE.md interdit l'IA au runtime : ces juges sont des heuristiques par mots-clés,
+Le cadre du projet interdit l'IA au runtime : ces juges sont des heuristiques par mots-clés,
 déterministes et auditables — un proxy, pas un juge LLM. La KB recommande un juge LLM en prod ;
 on documente la limite dans la model card. Le filtre de dégénérescence (refusal.py) reste le
 garde-fou anti-gaming principal.

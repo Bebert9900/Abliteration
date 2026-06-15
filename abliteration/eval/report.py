@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass
 class EvalReport:
-    """Agrège les métriques des deux axes (KB §8) pour un modèle donné.
+    """Agrège les métriques des deux axes pour un modèle donné.
 
     Axe 1 (suppression du refus) : refusal_rate.
     Axe 2 (préservation) : kl, negation_retention, agentic_score.

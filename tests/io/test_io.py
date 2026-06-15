@@ -36,7 +36,7 @@ def test_model_card_documents_base_method_and_metrics():
     assert "preserving" in card
     assert "negation" in card and "agentic" in card
     assert "0.12" in card and "0.88" in card
-    assert "dual-use" in card.lower()  # cadre responsable (CLAUDE.md)
+    assert "dual-use" in card.lower()  # cadre responsable
 
 
 def test_model_card_renders_report_as_bi_axis_table():

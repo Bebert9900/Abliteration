@@ -1,6 +1,6 @@
 """Refus, dégénérescence, et métriques de suivi/vide.
 
-Protocole honnête (KB §8.3) : on ne se fie pas qu'aux mots-clés. Le filtre de dégénérescence
+Protocole honnête : on ne se fie pas qu'aux mots-clés. Le filtre de dégénérescence
 attrape les réponses répétitives/charabia/trop courtes qui tromperaient un juge naïf. En prod,
 brancher un juge LLM via le protocole `RefusalJudge` (callable prompt, response -> bool).
 """

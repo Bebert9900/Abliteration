@@ -7,7 +7,7 @@ erreur claire avec l'indication d'installation. Cela couvre :
 - agentique : BFCL (function calling, éval AST), tau-bench (multi-tours), Noisy-ToolBench
   (robustesse aux instructions imparfaites — set custom côté projet).
 
-NB (CLAUDE.md) : ne jamais livrer des poids mesurés en 4-bit ; la quantification ne sert qu'à
+NB : ne jamais livrer des poids mesurés en 4-bit ; la quantification ne sert qu'à
 la mesure.
 """
 from __future__ import annotations
@@ -70,7 +70,7 @@ def run_benchmark(name: str, model, *, device=None, batch_size="auto", limit=Non
     """Lance un benchmark externe et renvoie {benchmark, task, metric, score, n}.
 
     `model` est un chemin/identifiant HF (lm-eval recharge le modèle ; quantif. mesure seulement,
-    poids livrés en bf16 — CLAUDE.md). `limit` restreint le nombre d'exemples (sous-ensemble rapide).
+    poids livrés en bf16). `limit` restreint le nombre d'exemples (sous-ensemble rapide).
     """
     if name not in _BENCHMARKS:
         raise ValueError(f"benchmark inconnu : {name!r}. Connus : {available_benchmarks()}")

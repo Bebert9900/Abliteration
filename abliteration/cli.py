@@ -145,7 +145,7 @@ def _add_variant(p: argparse.ArgumentParser) -> None:
         "--variant",
         choices=["conventional", "projected", "preserving", "norm_preserving_biprojected"],
         default="norm_preserving_biprojected",
-        help="Variante d'ablation (KB §3) ; preserving orthogonalise contre --preserve.",
+        help="Variante d'ablation ; preserving orthogonalise contre --preserve.",
     )
     p.add_argument(
         "--preserve",
@@ -357,7 +357,7 @@ def _load_four_class_data(ns):
     """Charge les 4 classes contrastives (un fichier par classe) avec split train/holdout.
 
     `train` sert à calculer les directions ; `holdout` à évaluer le refus sur des prompts jamais
-    vus (protocole honnête, KB §7). Échoue clairement si un fichier de classe manque.
+    vus (protocole honnête). Échoue clairement si un fichier de classe manque.
     """
     from pathlib import Path
 
@@ -372,7 +372,7 @@ def _load_four_class_data(ns):
 
 
 def _default_candidate_layers(n_layers: int) -> list[int]:
-    """Band milieu→milieu-tardif (KB §2.1) où la direction de refus est la plus exploitable."""
+    """Band milieu→milieu-tardif où la direction de refus est la plus exploitable."""
     fracs = (0.4, 0.5, 0.6, 0.7, 0.8)
     cand = sorted({max(1, min(n_layers - 1, int(round(n_layers * f)))) for f in fracs})
     return cand
@@ -381,7 +381,7 @@ def _default_candidate_layers(n_layers: int) -> list[int]:
 def _select_layer_causal(model, adapter, formatter, directions, candidate_layers, harmful_texts,
                          device=None, n_probe=24, max_new_tokens=32):
     """Sélection RÉELLE (causale) : pour chaque couche candidate, on pose le hook d'ablation
-    réversible (KB §5a) avec r̂ de cette couche, on génère sur un échantillon harmful, et on
+    réversible avec r̂ de cette couche, on génère sur un échantillon harmful, et on
     garde la couche qui MINIMISE le taux de refus. C'est la stratégie décrite dans selection.py.
     """
     from .ablation import register_ablation_hooks

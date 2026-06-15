@@ -7,7 +7,7 @@ sur disque, clés par un hash de ces composantes.
 
 Le cache est opt-out (`--no-cache`) : il n'altère JAMAIS le résultat (mêmes entrées → même sortie),
 seulement le temps de calcul. La clé inclut une signature du chat template car celui-ci change les
-activations (cf. CLAUDE.md : « chat template toujours »).
+activations (le chat template doit toujours être appliqué avant la collecte).
 """
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 Optuna est une dépendance optionnelle (`pip install optuna`). On sauve un checkpoint après
 CHAQUE trial (JSONL append) → reprise Ctrl+C-safe. Le câblage de l'espace de recherche
-(direction_index, kernel de poids d'ablation par composant — KB §3.6) est passé via `space`.
+(direction_index, kernel de poids d'ablation par composant) est passé via `space`.
 """
 from __future__ import annotations
 

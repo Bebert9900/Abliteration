@@ -34,7 +34,7 @@ def project_out(direction: torch.Tensor, against: list[torch.Tensor], eps: float
 
 class Variant(str, Enum):
     CONVENTIONAL = "conventional"
-    PROJECTED = "projected"                              # contre harmless (KB §3.2)
+    PROJECTED = "projected"                              # contre harmless
     PRESERVING = "preserving"                            # contre sous-ensemble [ĥ, n̂, â]
     NORM_PRESERVING_BIPROJECTED = "norm_preserving_biprojected"
 
@@ -57,7 +57,7 @@ def ablation_direction(
     if variant is Variant.NORM_PRESERVING_BIPROJECTED:
         # Simplification documentée : on préserve (négation, agentique) à la projection ; la
         # préservation de norme est appliquée au stade des poids (orthogonalize_weights). La
-        # biprojection inter-couches complète est un raffinement ultérieur (KB §3.4).
+        # biprojection inter-couches complète est un raffinement ultérieur.
         names = preserve or ["harmless", "negation", "agentic"]
         return project_out(r, directions.preserve_vectors(names, layer))
     raise ValueError(f"variante inconnue : {variant}")

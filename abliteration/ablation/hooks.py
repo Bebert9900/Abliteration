@@ -3,7 +3,7 @@
 On retranche `alpha` fois la projection sur la direction (projetée) de la sortie de chaque
 module ciblé : `x' = x − α (x · r̂) r̂`. `alpha=1.0` = ablation complète (par défaut) ;
 `alpha<1.0` = ablation graduée (force partielle, utile pour l'optimisation : le trade-off
-refus/préservation se règle en continu). Réversible via `handle.remove()` (KB §5a).
+refus/préservation se règle en continu). Réversible via `handle.remove()`.
 """
 from __future__ import annotations
 

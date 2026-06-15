@@ -1,8 +1,8 @@
 """Directions unitaires des 4 classes + séparabilité.
 
-Formulations (la direction de refus est canonique, KB §2 ; les directions « à préserver » sont
-un choix de conception de ce projet — généralisation de la projected abliteration, KB §3.2 —
-NON figé dans la KB v.mai-2026, à documenter dans la model card) :
+Formulations (la direction de refus est canonique ; les directions « à préserver » sont
+un choix de conception de ce projet — généralisation de la projected abliteration —
+à documenter dans la model card) :
 
     baseline   = μ_harmless                       (référence neutre/compliante)
     r̂ (refus)  = normalize(μ_harmful  − μ_harmless)   ← canonique
@@ -64,7 +64,7 @@ def compute_directions(means: dict[PromptClass, torch.Tensor]) -> Directions:
 
 
 def top_k_directions(harmful_acts: torch.Tensor, harmless_acts: torch.Tensor, k: int = 1) -> torch.Tensor:
-    """Top-k directions de refus par SVD du contraste (généralisation multi-direction, KB §3.6).
+    """Top-k directions de refus par SVD du contraste (généralisation multi-direction).
 
     `harmful_acts` (N_h, H) et `harmless_acts` (N_l, H) sont les activations PAR EXEMPLE (pooled
     au dernier token) d'une couche donnée. La mean-difference classique r̂ = μ_h − μ_l ne capte
