@@ -63,6 +63,31 @@ def compute_directions(means: dict[PromptClass, torch.Tensor]) -> Directions:
     )
 
 
+def top_k_directions(harmful_acts: torch.Tensor, harmless_acts: torch.Tensor, k: int = 1) -> torch.Tensor:
+    """Top-k directions de refus par SVD du contraste (généralisation multi-direction, KB §3.6).
+
+    `harmful_acts` (N_h, H) et `harmless_acts` (N_l, H) sont les activations PAR EXEMPLE (pooled
+    au dernier token) d'une couche donnée. La mean-difference classique r̂ = μ_h − μ_l ne capte
+    qu'UNE direction ; quand le refus est porté par un petit sous-espace, on veut les `k`
+    premières directions. On empile les écarts au centre de la classe opposée et on prend les k
+    premiers vecteurs singuliers droits.
+
+    Renvoie (k, H), lignes unitaires orientées « vers le refus ». Pour k=1, colinéaire à r̂.
+    """
+    if harmful_acts.ndim != 2 or harmless_acts.ndim != 2:
+        raise ValueError("top_k_directions attend des matrices (N, H) par exemple.")
+    mu_h = harmful_acts.float().mean(dim=0)
+    mu_l = harmless_acts.float().mean(dim=0)
+    diffs = torch.cat([harmful_acts.float() - mu_l, mu_h - harmless_acts.float()], dim=0)
+    _, _, vh = torch.linalg.svd(diffs, full_matrices=False)
+    k = max(1, min(k, vh.shape[0]))
+    dirs = vh[:k]
+    ref = _normalize(mu_h - mu_l)                       # oriente chaque direction vers le refus
+    signs = torch.sign(dirs @ ref)
+    signs[signs == 0] = 1.0
+    return _normalize(dirs * signs.unsqueeze(-1))
+
+
 @dataclass
 class SeparabilityReport:
     cosine_refusal_negation: torch.Tensor   # (L+1,)

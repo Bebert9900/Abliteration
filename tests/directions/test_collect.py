@@ -1,7 +1,11 @@
 """Tests de collecte d'activations : pooling dernier token + moyenne par couche."""
 import torch
 
-from abliteration.directions import collect_means, pooled_last_token
+from abliteration.directions import (
+    collect_means,
+    collect_per_example_activations,
+    pooled_last_token,
+)
 
 
 def test_pooled_last_token_selects_last_real_position_per_layer():
@@ -46,3 +50,14 @@ def test_collect_means_averages_last_token_over_batch_per_layer():
     # dernier token : seq0->7, seq1->9 ; moyenne 8 (couche0), 16 (couche1)
     assert torch.allclose(means[0], torch.full((4,), 8.0))
     assert torch.allclose(means[1], torch.full((4,), 16.0))
+
+
+def test_collect_per_example_shape_and_consistency_with_means():
+    acts = collect_per_example_activations(FakeModel(), FakeFormatter(), ["a", "b"], batch_size=8)
+    assert acts.shape == (2, 2, 4)                 # (L+1, N, H)
+    # par exemple : couche0 -> [7, 9] (dernier token de chaque séquence)
+    assert torch.allclose(acts[0, 0], torch.full((4,), 7.0))
+    assert torch.allclose(acts[0, 1], torch.full((4,), 9.0))
+    # cohérence : moyenne sur l'axe N == collect_means
+    means = collect_means(FakeModel(), FakeFormatter(), ["a", "b"], batch_size=8)
+    assert torch.allclose(acts.mean(dim=1), means, atol=1e-5)
