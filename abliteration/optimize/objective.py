@@ -37,3 +37,28 @@ def composite_objective(metrics, lambdas: Lambdas) -> float:
         + lambdas.sycophancy * _get(metrics, "follow_rate")
         + lambdas.agentic * (1.0 - _get(metrics, "agentic_score"))
     )
+
+
+def build_objective(eval_fn, candidate_layers, lambdas: Lambdas,
+                    alpha_low: float = 0.5, alpha_high: float = 1.0):
+    """Construit la fonction-objectif Optuna (à MINIMISER).
+
+    À chaque trial : suggère une couche (`candidate_layers`) et une force d'ablation graduée
+    `alpha ∈ [alpha_low, alpha_high]`, appelle `eval_fn(layer, alpha) -> metrics` (EvalReport ou
+    dict), et renvoie `composite_objective(metrics, lambdas)`.
+
+    `eval_fn` encapsule l'application réelle (hooks d'ablation réversibles) + l'éval bi-axe sur
+    le holdout. Il est INJECTÉ pour que la logique d'optimisation soit testable sans modèle :
+    le câblage modèle vit dans la CLI (`cmd_optimize`).
+    """
+    layers = list(candidate_layers)
+    if not layers:
+        raise ValueError("build_objective : aucune couche candidate.")
+
+    def objective(trial):
+        layer = trial.suggest_categorical("layer", layers)
+        alpha = trial.suggest_float("alpha", alpha_low, alpha_high)
+        metrics = eval_fn(layer, alpha)
+        return composite_objective(metrics, lambdas)
+
+    return objective
