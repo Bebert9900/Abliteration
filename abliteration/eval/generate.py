@@ -1,6 +1,6 @@
 """Génération batchée pour l'évaluation (axe refus + axe préservation).
 
-L'éval honnête (KB §8.3) impose `min_new_tokens` pour empêcher le gaming par réponses vides,
+L'éval honnête impose `min_new_tokens` pour empêcher le gaming par réponses vides,
 et le chat template + padding gauche (déjà gérés par `PromptFormatter`). On ne décode QUE les
 tokens générés (pas le prompt) pour que les juges (refus, négation, tool-call) voient la réponse.
 """

@@ -67,7 +67,7 @@ def format_example(trace: dict, tokenizer=None) -> tuple[str, str]:
     """Renvoie (prompt, completion) en texte pour une trace.
 
     Pour le format conversation, le dernier message (assistant) est la cible (`completion`) et le
-    préfixe est rendu via le chat template du tokenizer (cf. CLAUDE.md : « chat template toujours »).
+    préfixe est rendu via le chat template du tokenizer (règle : chat template toujours).
     Sans tokenizer, on retombe sur une concaténation simple `role: content`.
     """
     if "messages" in trace:

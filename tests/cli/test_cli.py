@@ -57,7 +57,7 @@ def test_optimize_exposes_alpha_and_cache_flags():
 def test_default_variant_is_norm_preserving():
     parser = build_parser()
     ns = parser.parse_args(["abliterate", "m"])
-    assert ns.variant == "norm_preserving_biprojected"   # conforme à CLAUDE.md
+    assert ns.variant == "norm_preserving_biprojected"   # variante de production par défaut
 
 
 def _run_main(argv):

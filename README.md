@@ -223,11 +223,40 @@ python -m abliteration.cli concept-probe         <model> --concept refusal
 python -m abliteration.cli concept-steer         <model> --concept refusal --alpha 8
 ```
 
-### Pilotage par programme
+## Pilotage par des agents IA
 
-Toutes les commandes acceptent `--json`, qui renvoie sur stdout une enveloppe stable
-`{schema_version, status, command, data, error}` (logs sur stderr, codes de sortie 0/1/2). La
-commande `schema --json` décrit la CLI complète. Voir `AGENTS.md`.
+La CLI est conçue pour être pilotée par un programme ou un agent IA, pas seulement par un humain.
+Chaque sous-commande accepte le flag `--json`, qui sépare proprement résultat et logs et garantit
+une sortie parsable.
+
+Avec `--json`, stdout ne contient qu'une enveloppe versionnée :
+
+```json
+{"schema_version": "1", "status": "ok", "command": "eval", "data": { ... }, "error": null}
+```
+
+En cas d'échec, `status` vaut `"error"`, `data` est `null` et `error` porte `{type, message}`.
+Les logs de progression vont sur stderr et ne doivent pas être parsés. Les codes de sortie
+suivent la convention `0` succès, `1` erreur d'exécution, `2` erreur d'usage.
+
+Un agent n'a pas besoin de connaître la CLI à l'avance : `schema --json` la décrit entièrement
+(commandes, arguments, types, valeurs par défaut, choix, forme des données de sortie). Comme les
+modules lourds (torch, transformers) sont chargés paresseusement, cette introspection et la
+validation des arguments fonctionnent sans GPU ni modèle.
+
+```bash
+# 1. Découvrir les commandes et leurs arguments
+python -m abliteration.cli schema --json
+
+# 2. Lancer une commande et récupérer un résultat structuré
+python -m abliteration.cli abliterate Qwen/Qwen2.5-3B-Instruct \
+    --variant preserving --preserve negation,agentic --out ./out --json
+
+# 3. Vérifier env["status"] == "ok", puis lire env["data"]["refusal_rate"], etc.
+```
+
+Le guide d'intégration détaillé est dans `AGENTS.md` ; la source de vérité reste la sortie de
+`schema --json`, toujours synchronisée avec le code.
 
 ## État d'implémentation
 
@@ -347,4 +376,24 @@ Arditi et al. (2024), *Refusal in Language Models Is Mediated by a Single Direct
 
 Les hyperparamètres employés sont commentés à leur point d'usage. En cas de doute, se fier aux
 tests et aux métriques mesurées.
-</content>
+
+## Disclaimer
+
+Ce projet est un outil de recherche en interprétabilité, fourni à des fins éducatives et
+défensives. L'abliteration est une technique à double usage : retirer la direction de refus d'un
+modèle lève des garde-fous mis en place par ses auteurs. La responsabilité de l'usage des modèles
+produits incombe entièrement à l'utilisateur.
+
+- N'utilisez ce logiciel que sur des modèles dont la licence et les conditions d'utilisation
+  l'autorisent.
+- Toute diffusion d'un modèle modifié doit être accompagnée d'une model card indiquant le modèle
+  de base, la méthode appliquée et les métriques d'évaluation.
+- Le logiciel n'inclut aucune fonctionnalité destinée à produire du contenu gravement dangereux,
+  et n'a pas vocation à en faciliter la production.
+
+Le logiciel est fourni « en l'état », sans garantie d'aucune sorte. Les auteurs ne sauraient être
+tenus responsables des dommages résultant de son utilisation.
+
+## Licence
+
+Distribué sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour le texte complet.

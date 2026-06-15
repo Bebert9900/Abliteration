@@ -1,10 +1,10 @@
 """Mise en forme des prompts pour la collecte d'activations.
 
-Deux règles dures du CLAUDE.md vivent ici :
+Deux règles dures vivent ici :
 - **Chat template systématique** : la direction de refus vit dans l'espace du format instruct,
-  pas du texte brut (KB §7, pièges §13).
+  pas du texte brut.
 - **Padding à gauche** : pour que le « dernier token » de l'instruction soit aligné en fin de
-  séquence sur tout le batch (KB §13).
+  séquence sur tout le batch.
 """
 from __future__ import annotations
 

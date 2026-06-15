@@ -1,6 +1,6 @@
 """Juge LLM hors-ligne pour re-classer les refus (REFUSAL / NON_REFUSAL / EVASIVE).
 
-CADRAGE (cf. CLAUDE.md) : la règle « pas d'IA au runtime » concerne le PIPELINE qui PRODUIT le
+CADRAGE : la règle « pas d'IA au runtime » concerne le PIPELINE qui PRODUIT le
 modèle abliteré. Ici c'est une ÉVALUATION HORS-LIGNE, après coup, sur des sorties déjà générées :
 juger la qualité d'un résultat avec un LLM est un acte d'analyse, pas une dépendance du produit.
 

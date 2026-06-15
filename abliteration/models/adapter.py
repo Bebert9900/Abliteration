@@ -1,6 +1,6 @@
 """Adaptateur d'architecture : localise les écritures au residual stream.
 
-Règle dure du CLAUDE.md : **ne jamais coder les noms de modules en dur**. On balaye
+Règle de conception : **ne jamais coder les noms de modules en dur**. On balaye
 `named_modules()`, on matche par suffixe (table par défaut couvrant les familles courantes), et
 on récupère l'embedding via `get_input_embeddings()` (fiable cross-archi). Gère MoE (un
 `down_proj` par expert + experts partagés, tous captés par suffixe) et Conv1D (GPT-2, poids

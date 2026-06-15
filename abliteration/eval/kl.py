@@ -1,4 +1,4 @@
-"""Divergence KL sur prompts harmless : préservation des capacités (KB §8.2).
+"""Divergence KL sur prompts harmless : préservation des capacités.
 
 KL scalaire (mesure agrégée) + diagnostic fin : KL PAR POSITION (quels tokens l'ablation
 perturbe le plus) pour localiser la casse — complément du module `circuits/`.

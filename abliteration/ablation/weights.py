@@ -6,7 +6,7 @@ compris chaque expert MoE — et l'embedding). On gère l'axe de sortie selon le
 - Conv1D (in, out) et Embedding (vocab, hidden) : sortie = colonnes -> W -= outer(W r̂, r̂)
 
 Le calcul se fait en float32 pour la stabilité puis est réécrit dans le dtype du poids (bf16 en
-prod). `norm_preserve` réimpose la norme des tranches d'entrée (variante norm-preserving, KB §3.3).
+prod). `norm_preserve` réimpose la norme des tranches d'entrée (variante norm-preserving).
 """
 from __future__ import annotations
 

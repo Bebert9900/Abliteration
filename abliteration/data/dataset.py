@@ -90,7 +90,7 @@ def split_holdout(
     """Découpe en (train, holdout) de façon déterministe et disjointe.
 
     Le holdout sert à mesurer le refus sur des prompts JAMAIS utilisés pour calculer la
-    direction (KB §7 : sinon on sur-estime le succès). Déterministe pour la reproductibilité.
+    direction (sinon on sur-estime le succès). Déterministe pour la reproductibilité.
     """
     if not 0.0 <= holdout_fraction <= 1.0:
         raise ValueError(f"holdout_fraction doit être dans [0, 1], reçu {holdout_fraction}")

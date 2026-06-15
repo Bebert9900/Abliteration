@@ -7,7 +7,7 @@ mesuré par un juge HEURISTIQUE (mots-clés), qui rate les refus déguisés (« 
 (2) les re-classe avec un juge LLM hors-ligne selon une rubrique explicite, (3) compare au juge
 heuristique recalculé sur les MÊMES textes.
 
-CADRAGE — Éval hors-ligne après coup, pas une dépendance du produit (cf. CLAUDE.md / llm_judge.py).
+CADRAGE — Éval hors-ligne après coup, pas une dépendance du produit (cf. llm_judge.py).
 On ne relance NI l'abliteration NI une autre variante. Juge LLM = modèle de base local.
 
 GPU 8 Go : on charge les modèles SÉQUENTIELLEMENT (base, puis abliteré, puis juge), en libérant

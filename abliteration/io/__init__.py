@@ -37,7 +37,7 @@ def build_model_card(base_model: str, variant: str, preserve, metrics: dict,
 
     `report` (EvalReport ou dict) : rendu en tableau lisible refus/préservation/garde-fous.
     `run_config` : hyperparamètres + empreintes de données, pour la reproductibilité.
-    Exigée par CLAUDE.md (« jamais de livraison sans model card »).
+    Exigée par le cadre du projet : jamais de livraison sans model card.
     """
     preserve = list(preserve or [])
     lines = [

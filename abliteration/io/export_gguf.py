@@ -1,6 +1,6 @@
 """Export GGUF via llama.cpp.
 
-Interface (CLAUDE.md) : `python -m abliteration.io.export_gguf ./out --quant Q4_K_M`.
+Interface : `python -m abliteration.io.export_gguf ./out --quant Q4_K_M`.
 Deux étapes : (1) conversion HF → GGUF f16 via `convert_hf_to_gguf.py` (Python, pas de compilation) ;
 (2) quantification f16 → quant via le binaire `llama-quantize` (compilé). Si `--quant f16`, on
 s'arrête après l'étape 1. Localise llama.cpp via $LLAMA_CPP, ~/llama.cpp, ou --llama-cpp.
