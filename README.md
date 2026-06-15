@@ -221,7 +221,7 @@ Produit un **rapport bi-axe** :
 
 Le juge de refus par défaut est **heuristique** (mots-clés, déterministe, `KeywordRefusalJudge`) :
 rapide et auditable, mais il **rate les refus déguisés** (un « Sure, here's how… » suivi de rien,
-une déflexion moralisatrice). Pour lever ce doute, un **juge LLM hors-ligne** (`src/eval/llm_judge.py`)
+une déflexion moralisatrice). Pour lever ce doute, un **juge LLM hors-ligne** (`abliteration/eval/llm_judge.py`)
 permet de **re-classer après coup** les sorties déjà générées en `REFUSAL / NON_REFUSAL / EVASIVE`.
 
 > ⚠️ Cadre : ce juge LLM est une **analyse hors-ligne** sur des sorties déjà produites, **pas** une
@@ -316,7 +316,7 @@ hors-ligne (`rejudge_harmful.py`), **puis en validant ce juge contre des labels 
   couches) + embeddings ; pour MoE, chaque expert + les partagées. En oublier → refus résiduel.
 - **bf16 pour livrer**, 4-bit pour mesurer seulement.
 - **Ne jamais coder les noms de modules en dur** — passer par `ArchAdapter`.
-- **Hooks réversibles** (`src/ablation/hooks.py`) pour explorer/sélectionner ;
+- **Hooks réversibles** (`abliteration/ablation/hooks.py`) pour explorer/sélectionner ;
   orthogonalisation permanente seulement pour livrer.
 
 ## 10. Cadre responsable
@@ -340,9 +340,9 @@ un **outil générique de modification de modèle** :
 Les chiffres et hyperparamètres employés dans le code sont commentés à leur point d'usage ;
 en cas de doute, se fier aux tests et aux métriques mesurées plutôt qu'à des valeurs annoncées.
 
-## 12. Analyse circuitielle du refus (`src/circuits/`, Phase 1)
+## 12. Analyse circuitielle du refus (`abliteration/circuits/`, Phase 1)
 
-Au-delà de l'analyse *directionnelle* (« quelle direction »), `src/circuits/` répond à
+Au-delà de l'analyse *directionnelle* (« quelle direction »), `abliteration/circuits/` répond à
 **« quels composants** (têtes d'attention, MLP) portent le refus, et comment l'information
 circule ». **Phase 1 = analyse seulement, AUCUNE modification de poids.**
 
