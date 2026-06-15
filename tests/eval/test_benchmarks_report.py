@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from src.eval import (
+from abliteration.eval import (
     BenchmarkNotInstalled,
     EvalReport,
     available_benchmarks,

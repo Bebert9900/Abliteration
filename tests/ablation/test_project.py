@@ -1,8 +1,8 @@
 """Tests de project_out (orthogonalité numérique) et des variantes de direction."""
 import torch
 
-from src.directions import Directions
-from src.ablation import Variant, ablation_direction, project_out
+from abliteration.ablation import Variant, ablation_direction, project_out
+from abliteration.directions import Directions
 
 
 def test_project_out_removes_component_along_against():

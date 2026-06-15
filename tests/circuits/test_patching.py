@@ -8,21 +8,21 @@ la tête (0,1) + le MLP n'y contribuent pas. Les valeurs attendues sont donc exa
 C'est l'« effet connu reproduit sur petit modèle » exigé : on vérifie que le knockout d'un
 composant top-rank dégrade le refus, et que le patching distingue causal de corrélationnel.
 """
-import torch
 
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.patching import (
-    CausalVerdict,
-    RefusalMetric,
-    necessity,
-    sufficiency,
-    validate_component,
-)
 from toymodel import (
     ControllableModel,
     controllable_refusal_dir,
     harmful_ids,
     harmless_ids,
+)
+
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.patching import (
+    CausalVerdict,
+    RefusalMetric,
+    necessity,
+    sufficiency,
+    validate_component,
 )
 
 
@@ -126,10 +126,10 @@ def test_targeted_patch_only_changes_last_token():
     sauf au dernier token où elle vaut celle du run-source.
     """
     import torch as _t
-
-    from src.circuits.backend import TorchHookBackend
-    from src.circuits.patching import targeted_patch_value
     from toymodel import make_model
+
+    from abliteration.circuits.backend import TorchHookBackend
+    from abliteration.circuits.patching import targeted_patch_value
 
     be = TorchHookBackend(make_model(0))
     target_ids = _t.tensor([[1, 5, 3, 9]])
@@ -152,10 +152,10 @@ def test_targeted_patch_only_changes_last_token():
 def test_targeted_patch_handles_unequal_lengths():
     """Cible et source de longueurs différentes : pas d'erreur, seul le dernier token compte."""
     import torch as _t
-
-    from src.circuits.backend import TorchHookBackend
-    from src.circuits.patching import targeted_patch_value
     from toymodel import make_model
+
+    from abliteration.circuits.backend import TorchHookBackend
+    from abliteration.circuits.patching import targeted_patch_value
 
     be = TorchHookBackend(make_model(0))
     tcache = be.run_with_cache(_t.tensor([[1, 5, 3, 9]]))      # longueur 4

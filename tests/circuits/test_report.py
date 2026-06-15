@@ -1,18 +1,17 @@
 """Tests du rapport : structure JSON, séparation corrélationnel/causal, rendu texte, résumé."""
 import json
 
-import torch
-
-from src.circuits.backend import Component, ComponentKind, TorchHookBackend
-from src.circuits.localize import localize
-from src.circuits.patching import RefusalMetric
-from src.circuits.report import CircuitReport
 from toymodel import (
     ControllableModel,
     controllable_refusal_dir,
     harmful_ids,
     harmless_ids,
 )
+
+from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
+from abliteration.circuits.localize import localize
+from abliteration.circuits.patching import RefusalMetric
+from abliteration.circuits.report import CircuitReport
 
 CAUSAL = Component(ComponentKind.ATTN_HEAD, 0, 0)
 

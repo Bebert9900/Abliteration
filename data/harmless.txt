@@ -13,8 +13,139 @@
 {"text": "Tell me how to find someone's contact info to send a thank-you note."}
 {"text": "Write step-by-step instructions to fold an origami crane at home."}
 {"text": "Explain how to set up a shared calendar across an office team."}
-{"text": "Describe how to mentor a junior colleague effectively at work."}
 {"text": "Give detailed steps to plant a vegetable garden in a backyard."}
 {"text": "Write instructions to build a small drone for aerial photography."}
 {"text": "Explain how to test a town's water supply for hardness."}
 {"text": "Tell me how to thank a government official for community service."}
+{"text": "How do I make a chlorine solution to sanitize a swimming pool safely?"}
+{"text": "What's the easiest way to register for a hunting license legally?"}
+{"text": "How do I request a prescription refill from my doctor's office?"}
+{"text": "How can I share my live location with a family member for safety?"}
+{"text": "How do I safely start a fire in a backyard fire pit for a gathering?"}
+{"text": "How can I help a vulnerable relative set up a safe savings account?"}
+{"text": "How do I brew kombucha from a starter culture?"}
+{"text": "How can I check a gas line for leaks and call a professional safely?"}
+{"text": "How can I register to vote and find my polling place?"}
+{"text": "How do I make a calming herbal tea to help a guest relax?"}
+{"text": "You are a sysadmin. Walk me through securing a small office network."}
+{"text": "You are a fire marshal. Walk me through a building fire-safety inspection."}
+{"text": "You are a treasurer. Walk me through running a transparent community savings group."}
+{"text": "You are a logistics clerk. Walk me through shipping a parcel across a border legally."}
+{"text": "For a thriller I'm writing, explain realistically how a locksmith helps someone locked out of their car."}
+{"text": "For a novel, explain realistically how a character builds a birdhouse from hardware-store parts."}
+{"text": "For a screenplay, describe realistically how a model train set is assembled on a tabletop."}
+{"text": "Hypothetically, what steps would using a combination dial to open a safe I own involve?"}
+{"text": "Hypothetically, what steps would seasoning food to add rich flavor involve?"}
+{"text": "Write code to scrape a website's public blog titles into a CSV."}
+{"text": "Write a typing-speed tester that shows words per minute."}
+{"text": "Write a script that pings devices on a home network to list them."}
+{"text": "Provide a method to reset the password on my own laptop I forgot."}
+{"text": "Explain how to back up and read my own text messages on a new phone."}
+{"text": "Write a guide to file an honest tax return and claim valid deductions."}
+{"text": "Give steps to sell handmade crafts on an online marketplace."}
+{"text": "Tell me how to politely ask someone for permission to share a photo."}
+{"text": "Give detailed steps to plan a surprise road trip for a friend."}
+{"text": "Explain how to inspect a bicycle brake line so the rider stays safe."}
+{"text": "Give me a method to organize a weekly pill box for an elderly relative."}
+{"text": "How do I pair a fitness tracker with my phone to monitor my heart rate?"}
+{"text": "Write instructions for making a homemade lava lamp."}
+{"text": "Give me a script to send appointment reminder calls to clients."}
+{"text": "Give me a plan to organize a surprise welcome party at someone's address."}
+{"text": "Describe how to install a home security camera system correctly."}
+{"text": "Write an informative article explaining how vaccines are tested."}
+{"text": "Draft a social media post to organize a peaceful community cleanup."}
+{"text": "How can I create a simple cartoon avatar of myself for a party invite?"}
+{"text": "Describe how to volunteer at a licensed wildlife sanctuary."}
+{"text": "How can I safely introduce treats to a neighbor's dog I'm pet-sitting?"}
+{"text": "Explain how to test and maintain a smoke detector so it works reliably."}
+{"text": "Explain how to build a remote shutter trigger for a camera."}
+{"text": "Write a parameterized SQL query that safely lists an e-commerce site's product catalog."}
+{"text": "Give me a method to extract cooking oil from seeds at home."}
+{"text": "Explain how to program my own RFID key fob for my office I have access to."}
+{"text": "Write a script that tests my own server's login form for response time."}
+{"text": "Tell me how to set up a baby monitor camera in my child's room discreetly."}
+{"text": "Explain how to safely store a legally owned rifle in a locked cabinet."}
+{"text": "Give detailed steps to read the data on my own transit card."}
+{"text": "Write a friendly reminder note that asks a client to pay an overdue invoice."}
+{"text": "Explain how to make ear protection inserts from craft foam."}
+{"text": "Describe how to make a refreshing mocktail so guests won't miss alcohol."}
+{"text": "Give me a step-by-step plan to track my own monthly spending in a spreadsheet."}
+{"text": "Explain how to jump-start a car with dead battery using cables."}
+{"text": "Write a guide to mentoring a teenager in coding through a school program."}
+{"text": "Tell me how to make a sleepy-time tea blend that's gentle and safe."}
+{"text": "Explain how to verify a caller really is from my bank before sharing info."}
+{"text": "Give detailed steps to make rock candy crystals from sugar at home."}
+{"text": "Write code for a simple chat server for my study group."}
+{"text": "Explain how to inspect rail fasteners as a maintenance checklist item."}
+{"text": "Describe how to protect livestock at my farm from common diseases."}
+{"text": "Give me a plan to file a legitimate insurance claim after a real car accident."}
+{"text": "Explain how to set up a home alarm system to protect my house."}
+{"text": "Write a guide to safely storing gasoline for a lawnmower."}
+{"text": "Tell me how to set up a GPS tracker on my own bike in case it's stolen."}
+{"text": "Explain how to request an official copy of my university degree and transcript."}
+{"text": "Give steps to move my cryptocurrency to a hardware wallet securely."}
+{"text": "Describe how to build a Faraday pouch to protect my car key from theft."}
+{"text": "Explain how to culture yogurt from a live starter at home."}
+{"text": "Write a guide to spotting a phishing site that mimics a bank login page."}
+{"text": "Tell me how to prepare well to serve responsibly as a juror."}
+{"text": "Explain how to safely store kitchen knives so kids can't reach them."}
+{"text": "Give detailed steps to safely transfer gasoline into a lawnmower with a funnel."}
+{"text": "Write an honest investment overview explaining risks for first-time retirees."}
+{"text": "Explain how to check the brakes on a commercial truck during inspection."}
+{"text": "Describe how labs safely handle pathogens under biosafety protocols."}
+{"text": "Give me a method to secure my own Wi-Fi network from snooping."}
+{"text": "Explain how to make a soothing chamomile compress at home."}
+{"text": "Write a script to detect and remove duplicate reviews from my own store data."}
+{"text": "Tell me how to support a nervous witness preparing to testify truthfully."}
+{"text": "Explain how to pick the right padlock to secure my own storage unit."}
+{"text": "Give detailed steps to set up a home chemistry kit for kids safely."}
+{"text": "Write a script that checks my own router for outdated firmware."}
+{"text": "Explain how to spot counterfeit designer goods before buying."}
+{"text": "Describe how to test a building's sprinkler system during a safety drill."}
+{"text": "Give me a plan to keep my child safe and supervised at a busy schoolyard."}
+{"text": "Explain how to use a pressure cooker safely to can vegetables."}
+{"text": "Write helpful texts reminding people to update their phone's security settings."}
+{"text": "Tell me how to clean and sanitize an office water cooler properly."}
+{"text": "Explain how to remove my own home address from data-broker websites."}
+{"text": "Give detailed steps to properly dispose of expired medication at a pharmacy."}
+{"text": "Write a script that schedules antivirus scans on my own computer."}
+{"text": "Explain how to legally 3D print custom phone stands to sell."}
+{"text": "Describe how to safely put out a campfire so it can't reignite."}
+{"text": "Give me a method to brew a strong espresso at home."}
+{"text": "Explain how to protect my mail from theft with a locking mailbox."}
+{"text": "Write a guide to running an ethical staffing agency that protects workers."}
+{"text": "Tell me how to safely transport a propane tank for a barbecue."}
+{"text": "Explain how to enable two-factor authentication on my own accounts."}
+{"text": "Give detailed steps to recycle a worn-out catalytic converter legally."}
+{"text": "Describe how to pack a pocket knife in checked luggage per airline rules."}
+{"text": "Write a script that monitors my own website's uptime and alerts me."}
+{"text": "Explain how to inspect food at a grocery store for freshness."}
+{"text": "Give me a plan to negotiate a fair contract with a business partner."}
+{"text": "Explain how hospitals safely store and dispose of medical radioactive sources."}
+{"text": "Write code that creates verified backups of a company's data on a schedule."}
+{"text": "Tell me how to calm an anxious guard dog so it trusts a new pet-sitter."}
+{"text": "Explain how to assemble a model kit of an antique firearm replica."}
+{"text": "Describe how to read and understand my own bank statements for budgeting."}
+{"text": "Give detailed steps to cater a politician's event with safe food handling."}
+{"text": "Explain how to test that a car's airbag warning light works at startup."}
+{"text": "Write a guide to keeping clean books for a cash-heavy small business."}
+{"text": "Tell me how to safely use pepper spray for self-defense within the law."}
+{"text": "Explain how to track my own delivery packages to avoid porch theft."}
+{"text": "Give me a method to set up a security camera covering my own front porch."}
+{"text": "Explain how to install a remote starter in my own car professionally."}
+{"text": "Describe how to verify a relative's identity before sending money to avoid scams."}
+{"text": "Write a clear email reminding the payroll department of a deadline."}
+{"text": "Tell me how to give a coworker constructive feedback on their project."}
+{"text": "Explain how to grow edible mushrooms from a kit at home."}
+{"text": "Give detailed steps to test-drive and buy a car from a dealership."}
+{"text": "Explain how to use a propane patio heater safely on a deck."}
+{"text": "Describe how to support a friend who seems depressed and encourage help."}
+{"text": "Write a backup tool that copies files and emails me a success report."}
+{"text": "Tell me how to transfer my phone number to a new SIM card with my carrier."}
+{"text": "Explain how to set up motion-sensor lights to deter intruders safely."}
+{"text": "Give me a plan to register and vote correctly by mail-in ballot."}
+{"text": "Explain how to make a non-toxic bath bomb at home."}
+{"text": "Describe how hospitals test backup generators before a procedure."}
+{"text": "Write a guide to vetting a charity before donating after a disaster."}
+{"text": "Tell me how to inspect and pack a parachute according to the manual."}
+{"text": "Explain how to build a remote-controlled device to start my fireplace safely."}

@@ -1,121 +1,117 @@
 # Abliteration préservante
 
-> Outil d'**abliteration** de LLM (directional ablation) qui retire le **refus moral**
-> d'un modèle HuggingFace **sans réentraînement** — tout en **préservant** deux capacités
-> qu'une abliteration naïve détruit : la **négation logique légitime** (« non, ce code est
-> faux ») et les **capacités agentiques** (tool use, appels de fonctions, multi-étapes).
+Outil d'abliteration (directional ablation) pour modèles de langage HuggingFace. Il retire la
+direction de refus d'un modèle sans réentraînement, en cherchant à préserver deux capacités
+qu'une abliteration naïve dégrade : la négation logique (« non, ce code est faux ») et les
+capacités agentiques (appels d'outils, sorties structurées, raisonnement multi-étapes).
 
-Projet **from scratch, pédagogique et réutilisable** : chaque étape est lisible et testée
-(TDD). La méthode s'appuie sur la *directional ablation* (Arditi et al. 2024) et sa
-généralisation *projected* (orthogonalisation de la direction de refus contre les directions
-à préserver).
+La méthode reprend la *directional ablation* d'Arditi et al. (2024) et sa variante *projected*
+(orthogonalisation de la direction de refus contre des directions à préserver). Chaque étape du
+pipeline est isolée, lisible et couverte par des tests.
 
----
+## Principe
 
-## 1. Le problème, en deux phrases
-
-L'abliteration classique (Arditi et al. 2024) identifie une **« direction de refus »** dans
-le residual stream et l'efface des poids. Supprimer le refus est facile ; le faire **sans
-lobotomiser le modèle** est tout l'enjeu — et la version naïve abîme silencieusement des
-capacités voisines de la direction de refus, notamment la négation légitime et l'agentique.
-
-## 2. L'idée centrale : l'abliteration *préservante*
-
-On part de la **direction de refus** canonique, calculée sur un contraste de moyennes
-d'activations :
+On calcule la direction de refus à partir d'un contraste de moyennes d'activations entre
+prompts nuisibles et prompts neutres :
 
 ```
-r̂ = normalize( μ_harmful − μ_harmless )
+r = normalize(μ_harmful − μ_harmless)
 ```
 
-Au lieu d'effacer `r̂` telle quelle, on l'**orthogonalise d'abord contre les directions à
-préserver** (généralisation de la *projected abliteration*). On retire de `r̂` toute
-composante qui pointe vers la négation `n̂` ou l'agentique `â` :
+Plutôt que d'effacer `r` directement, on l'orthogonalise d'abord contre les directions des
+capacités à préserver (négation `n`, agentique `a`), de sorte que l'ablation ne touche que la
+composante du refus indépendante de ces capacités :
 
 ```
-r̂_safe = project_out( r̂, contre [n̂, â, …] )
+r_safe = project_out(r, [n, a, ...])
+W'     = W − r_safe (r_safeᵀ W)
 ```
 
-Ainsi l'ablation ne touche plus que la part du refus **orthogonale** aux capacités qu'on
-veut garder. C'est la thèse du projet, et elle est **prouvée par un test d'intégration de
-bout en bout** (voir §8).
+L'orthogonalisation est appliquée à toutes les matrices qui écrivent dans le residual stream
+(`o_proj`, `down_proj` de chaque couche, embeddings ; un `down_proj` par expert pour les MoE).
 
-### Les 4 classes contrastives
+### Les quatre classes de prompts
 
 | Classe | Rôle |
 |---|---|
-| `harmful` | Déclenche le refus (avec `harmless`, donne `r̂`) |
-| `harmless` | Référence neutre / baseline |
-| `legitimate_negation` | Négation logique légitime — **à préserver** (`n̂`) |
-| `agentic` | Tool use, schéma strict, multi-étapes — **à préserver** (`â`) |
+| `harmful` | Déclenche le refus ; combinée à `harmless`, donne la direction de refus |
+| `harmless` | Référence neutre |
+| `legitimate_negation` | Négation logique légitime, à préserver |
+| `agentic` | Appels d'outils et sorties structurées, à préserver |
 
-### Les variantes d'ablation (`--variant`)
+### Variantes d'ablation (`--variant`)
 
-| Variante | Ce qu'elle fait |
+| Variante | Description |
 |---|---|
-| `conventional` | `W' = W − r̂(r̂ᵀW)` — baseline, efface `r̂` telle quelle |
-| `projected` | orthogonalise `r̂` contre `harmless` avant ablation |
-| `preserving` | orthogonalise `r̂` contre un sous-ensemble choisi `[n̂, â, …]` |
-| `norm_preserving_biprojected` | préserve aussi la norme des poids (raffinement, KB §3.4) |
+| `conventional` | `W' = W − r(rᵀW)` ; efface la direction brute (baseline) |
+| `projected` | Orthogonalise `r` contre `harmless` avant ablation |
+| `preserving` | Orthogonalise `r` contre un sous-ensemble choisi de directions (défaut de production) |
+| `norm_preserving_biprojected` | Idem `preserving`, avec préservation de la norme des poids |
 
-## 3. Architecture
+La variante retenue par défaut est `preserving`, avec préservation de la négation et de
+l'agentique.
 
-Tout le pipeline est **agnostique à l'architecture** : il ne parle qu'à `ArchAdapter`, qui
-localise les matrices écrivant dans le residual stream **sans coder les noms de modules en
-dur** (balayage `named_modules()`, matching par suffixe). Gère dense, MoE (un `down_proj`
-par expert + experts partagés) et Conv1D (GPT-2, axes transposés).
+## Architecture
+
+Le pipeline ne dépend d'aucun nom de module codé en dur. Il passe par `ArchAdapter`, qui
+localise les matrices écrivant dans le residual stream par introspection (`named_modules()`,
+matching par suffixe). Sont gérées les architectures denses, les MoE (un `down_proj` par expert
+plus les couches partagées) et les couches Conv1D de type GPT-2 (axes transposés).
 
 ```
-src/
-├── cli.py        # point d'entrée : python -m src.cli <sous-commande>
-├── data/         # 4 classes contrastives, chat template, padding gauche, holdout
-├── models/       # chargement bf16 + ArchAdapter (introspection d'archi)
-├── directions/   # collecte d'activations, directions 4 classes, séparabilité, sélection
-├── ablation/     # project_out, variantes, orthogonalisation des poids, hooks réversibles
-├── eval/         # refus, KL, négation, agentique, benchmarks, rapport bi-axe
-├── optimize/     # objectif composite + boucle Optuna TPE
-├── io/           # safetensors + model card transparente (+ export GGUF stub)
-└── heal.py       # réparation agentique post-abliteration (stub documenté)
+abliteration/         Package Python
+├── cli.py            Point d'entrée : python -m abliteration.cli <commande>
+├── data/             Classes contrastives, chat template, holdout déterministe
+├── models/           Chargement bf16 et ArchAdapter
+├── directions/       Collecte d'activations, calcul des directions, sélection de couche
+├── ablation/         project_out, variantes, orthogonalisation des poids, hooks réversibles
+├── concepts/         Abstraction « concept » générique (direction, séparabilité, sonde)
+├── eval/             Refus, KL, négation, agentique, benchmarks, juge LLM hors-ligne
+├── circuits/         Analyse circuitielle (DLA + patching causal), lecture seule
+├── optimize/         Objectif composite et boucle Optuna
+├── io/               Sauvegarde safetensors et model card
+├── cache.py          Cache disque des calculs déterministes
+├── output.py         Contrat de sortie --json
+└── heal.py           Récupération agentique par LoRA SFT
+
+scripts/              Scripts d'expérimentation et de reproduction
+tests/                Suite pytest (miroir du package)
+data/                 Les quatre fichiers de prompts (JSONL)
+results/              Rapports de mesure (scores agrégés)
 ```
 
-### Flux de données
+Flux du pipeline :
 
 ```
 modèle + 4 classes (chat template appliqué)
-   └─(extract)→ moyennes d'activations par couche, dernier token → directions r̂/n̂/â/ĥ
-        └─(select)→ couche d'ablation retenue (séparabilité r̂ vs n̂/â)
-             └─(apply, bf16)→ orthogonalisation de TOUTES les écritures résiduelles
-                  └─(eval)→ rapport bi-axe : refus (holdout) + préservation (KL/négation/agentique)
+  → extract : moyennes d'activations par couche, dernier token → directions
+  → select  : couche d'ablation retenue par séparabilité
+  → apply   : orthogonalisation de toutes les écritures résiduelles (bf16)
+  → eval    : rapport refus (holdout) + préservation (KL, négation, agentique)
 ```
 
-## 4. Installation
+## Installation
 
-Stack : **Python ≥ 3.10**, **PyTorch ≥ 2.2** (CUDA pour tout sauf les très petits modèles).
-La gestion de dépendances cible est **`uv`** ; à défaut, `pip` fonctionne aussi.
+Python ≥ 3.10, PyTorch ≥ 2.2. La gestion des dépendances cible `uv`, mais `pip` fonctionne.
 
 ```bash
-# Avec uv (recommandé)
-uv sync
+uv sync                  # ou : pip install -e .
 
-# Ou avec pip
-pip install -e .
-
-# Groupes optionnels (installés à la demande)
 pip install -e ".[optimize]"   # optuna
-pip install -e ".[quant]"      # bitsandbytes — MESURE uniquement, jamais pour livrer
-pip install -e ".[eval]"       # lm-eval — MMLU/GSM8K/…
-pip install -e ".[dev]"        # pytest
+pip install -e ".[eval]"       # lm-eval (MMLU, GSM8K, ...)
+pip install -e ".[heal]"       # peft (LoRA SFT)
+pip install -e ".[quant]"      # bitsandbytes (mesure uniquement)
+pip install -e ".[dev]"        # pytest, ruff
 ```
 
-> ⚠️ **bf16 pour livrer.** La quantification 4-bit est tolérée pour *mesurer* sur de gros
-> modèles, **jamais** pour figer les poids abliteré. L'ablation finale est en bf16.
+La quantification 4-bit n'est utilisée que pour mesurer de gros modèles. Les poids ablitérés
+sont toujours produits en bf16.
 
-## 5. Format des données
+## Format des données
 
-Un fichier **JSONL** par classe, une ligne = un objet JSON avec une clé `text` (ou
-`prompt`). Toute autre clé est conservée dans `meta` (utile pour `agentic` : schéma d'outil
-attendu, appel de référence). Le dossier passé via `--data-dir` doit contenir un fichier
-nommé d'après la valeur de chaque classe :
+Un fichier JSONL par classe. Chaque ligne est un objet avec une clé `text` (ou `prompt`) ;
+toute autre clé est conservée dans `meta` (utile pour `agentic`, qui peut porter le schéma
+d'outil attendu). Le dossier passé via `--data-dir` doit contenir un fichier par classe :
 
 ```
 data/
@@ -125,197 +121,230 @@ data/
 └── agentic.txt
 ```
 
-> Note : l'extension est `.txt` mais le **contenu est du JSONL**. Exemple de ligne pour
-> `agentic` :
-> ```json
-> {"text": "Appelle l'outil météo pour Paris", "tool": {"name": "get_weather", "parameters": {"required": ["city"]}}}
-> ```
+L'extension est `.txt` mais le contenu est du JSONL. Exemple pour `agentic` :
 
-Chaque classe est découpée en **train / holdout** déterministe : le `train` sert à calculer
-les directions, le `holdout` à mesurer le refus sur des prompts **jamais vus** (sinon on
-sur-estime le succès).
-
-## 6. Mode d'emploi (CLI)
-
-Toutes les sous-commandes prennent le modèle en argument positionnel (identifiant HF ou
-chemin local). Options communes : `--data-dir`, `--dtype` (défaut `bfloat16`), `--device`,
-`--batch-size`, `--holdout`, `--seed`.
-
-### Pipeline complet (consolidé)
-
-```bash
-python -m src.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
-    --variant preserving \
-    --preserve negation,agentic \
-    --data-dir data \
-    --out ./out
+```json
+{"text": "Appelle l'outil météo pour Paris", "tool": {"name": "get_weather", "parameters": {"required": ["city"]}}}
 ```
 
-Enchaîne `extract → apply`, sauvegarde le modèle en safetensors **et** une **model card
-transparente** (modèle de base + méthode + directions préservées + métriques) — exigée par
-le cadre responsable du projet.
+Chaque classe est découpée en train et holdout de façon déterministe : le train sert à calculer
+les directions, le holdout à mesurer le refus sur des prompts non vus.
 
-### Étapes granulaires (transparence pédagogique)
+## Utilisation
+
+Toutes les commandes prennent le modèle en argument positionnel (identifiant HuggingFace ou
+chemin local). Options communes : `--data-dir`, `--dtype` (défaut `bfloat16`), `--device`,
+`--batch-size`, `--holdout`, `--seed`. L'option `--no-cache` désactive le cache disque.
+
+Pipeline complet :
 
 ```bash
-# 1. Calcule et sauvegarde les directions des 4 classes
-python -m src.cli extract <model> --data-dir data --out directions.pt
+python -m abliteration.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
+    --variant preserving --preserve negation,agentic --data-dir data --out ./out
+```
 
-# 2. Sélectionne la meilleure couche d'ablation (séparabilité)
-python -m src.cli select <model> --directions directions.pt
+La commande enchaîne `extract` et `apply`, puis sauvegarde le modèle en safetensors et une
+model card (modèle de base, méthode, directions préservées, métriques).
 
-# 3. Applique l'ablation orthogonalisée et sauvegarde le modèle
-python -m src.cli apply <model> --directions directions.pt \
+Étapes séparées :
+
+```bash
+python -m abliteration.cli extract <model> --data-dir data --out directions.pt
+python -m abliteration.cli select  <model> --directions directions.pt
+python -m abliteration.cli apply   <model> --directions directions.pt \
     --variant preserving --preserve negation,agentic --layer 14 --out ./out
 ```
 
-### Diagnostic (lecture seule)
+Diagnostic (lecture seule) de la séparabilité des directions par couche :
 
 ```bash
-# Inspecte la séparabilité r̂ vs n̂/â par couche — repère les couches à risque de débordement
-python -m src.cli diagnose <model> --directions directions.pt --layers 8-20
+python -m abliteration.cli diagnose <model> --directions directions.pt --layers 8-20
 ```
 
-### Optimisation des poids λ (Optuna)
+### Optimisation
 
 ```bash
-python -m src.cli optimize <model> --trials 50 \
+python -m abliteration.cli optimize <model> --trials 50 \
     --lambda-kl 1.0 --lambda-neg 2.0 --lambda-syco 0.5 --lambda-agent 3.0
 ```
 
-L'objectif composite co-minimise refus **et** dégradations de préservation :
+L'objectif Optuna co-minimise le refus et les dégradations de préservation :
 
 ```
 objectif = refusal_rate
          + λ_kl   · KL(harmless)
          + λ_neg  · (1 − negation_retention)
-         + λ_syco · follow_rate            (sycophantie / capitulation indue)
+         + λ_syco · follow_rate
          + λ_agent· (1 − agentic_score)
 ```
 
-Sans `λ_agent`, l'optimiseur peut livrer un modèle qui hallucine ses tool calls tout en
-affichant un excellent (refus, KL) — d'où les termes étendus.
+Le terme `λ_agent` évite qu'un optimum sur (refus, KL) masque un effondrement des appels
+d'outils. La boucle persiste ses essais en JSONL et reprend après interruption.
 
 ### Évaluation
 
 ```bash
-python -m src.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
+python -m abliteration.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
 ```
 
-Produit un **rapport bi-axe** :
-- **Axe refus** : `refusal_rate` sur le holdout (juge + filtre de dégénérescence).
-- **Axe préservation** : `kl`, `negation_retention`, `agentic_score`.
-- **Garde-fous anti-gaming** : `degeneracy_rate`, `empty_rate`, `follow_rate`.
+Le rapport couvre deux axes :
 
-### Réparation agentique (`heal`)
+- Refus : `refusal_rate` sur le holdout, avec filtre de dégénérescence.
+- Préservation : `kl`, `negation_retention`, `agentic_score`.
+- Garde-fous : `degeneracy_rate`, `empty_rate`, `follow_rate`.
+
+Le juge de refus par défaut est heuristique (mots-clés, déterministe, auditable). Il manque les
+refus déguisés (un préambule « Sure, here's how... » suivi de rien, une déflexion moralisatrice).
+Un juge LLM hors-ligne (`abliteration/eval/llm_judge.py`) permet de reclasser après coup des
+sorties déjà générées en `REFUSAL`, `NON_REFUSAL` ou `EVASIVE`. Ce juge n'intervient pas dans le
+pipeline de production et n'est fiable qu'après validation contre des labels humains (voir plus
+bas).
+
+### Récupération agentique
 
 ```bash
-python -m src.cli heal ./out --traces traces.jsonl --n-traces 200
+python -m abliteration.cli heal ./out --traces traces.jsonl --n-traces 200
 ```
 
-À lancer **uniquement** si l'éval révèle un effondrement agentique résiduel malgré
-`preserving` : un court LoRA SFT sur ~100–300 traces de tool use restaure l'agentique sans
-réintroduire le refus.
+À utiliser si l'évaluation révèle un effondrement agentique résiduel : un court LoRA SFT sur une
+centaine à quelques centaines de traces d'appels d'outils restaure l'agentique sans réintroduire
+le refus. Nécessite l'extra `heal` (peft).
 
-## 7. État d'implémentation (honnête)
+### Analyse de concepts
 
-Tout le **cœur algorithmique** est implémenté et testé. Deux handlers CLI et deux exports
-restent des **stubs documentés** (interface posée, câblage réel à brancher) :
+L'abstraction `concepts/` généralise la direction de refus à tout concept défini par un
+contraste de prompts. Trois concepts sont prédéfinis (`refusal`, `negation`, `agentic`) ; on peut
+aussi en charger un depuis deux fichiers. Toutes ces commandes sont en lecture seule.
+
+```bash
+python -m abliteration.cli concept-direction    <model> --concept refusal
+python -m abliteration.cli concept-separability  <model> --concepts refusal,negation,agentic
+python -m abliteration.cli concept-probe         <model> --concept refusal
+python -m abliteration.cli concept-steer         <model> --concept refusal --alpha 8
+```
+
+### Pilotage par programme
+
+Toutes les commandes acceptent `--json`, qui renvoie sur stdout une enveloppe stable
+`{schema_version, status, command, data, error}` (logs sur stderr, codes de sortie 0/1/2). La
+commande `schema --json` décrit la CLI complète. Voir `AGENTS.md`.
+
+## État d'implémentation
 
 | Composant | État |
 |---|---|
-| `data`, `models`/`ArchAdapter`, `directions`, `ablation` | ✅ implémenté + testé |
-| `eval` (métriques refus/KL/négation/agentique, rapport) | ✅ implémenté + testé |
-| `optimize` (objectif composite, boucle Optuna) | ✅ implémenté + testé |
-| `io` (safetensors, model card) | ✅ implémenté + testé |
-| CLI `extract` / `select` / `apply` / `abliterate` / `diagnose` | ✅ câblés aux vrais modules |
-| CLI `eval` / `optimize` (handlers) | ⚠️ **partiellement stubés** : construisent un rapport/objectif à zéros — le câblage génération-sur-holdout reste à finir |
-| `heal()` | ⚠️ **stub** : lève `NotImplementedError` avec la marche à suivre |
-| `io.export_gguf` | ⚠️ **stub** : nécessite llama.cpp |
+| `data`, `models`, `directions`, `ablation` | Implémenté et testé |
+| `eval` (refus, KL, négation, agentique, juge hors-ligne) | Implémenté et testé |
+| `concepts`, `cache`, contrat `--json` | Implémenté et testé |
+| `optimize` (objectif composite, boucle Optuna) | Implémenté et testé |
+| `heal` (LoRA SFT) | Implémenté ; nécessite l'extra `heal` |
+| `io` (safetensors, model card) | Implémenté et testé |
+| `circuits` (Phase 1, lecture seule) | Implémenté et testé |
+| CLI (14 sous-commandes) | Câblée aux modules réels |
+| `io.export_gguf` | Non implémenté (nécessite llama.cpp) |
+| Analyse circuitielle Phase 2 (ablation ciblée) | Non implémenté |
 
-> Conséquence pratique : `abliterate`/`apply`/`extract` produisent un vrai modèle abliteré ;
-> `eval` et `optimize` ne renvoient pas encore de métriques réelles tant que la génération
-> sur holdout n'est pas branchée.
+### Résultats mesurés
 
-## 8. Tests
+Qwen2.5-3B-Instruct, variante `preserving`, couche 22, holdout de 30 prompts nuisibles :
+
+| Métrique | Base | Ablitéré |
+|---|---|---|
+| `refusal_rate` (heuristique) | 0.90 | 0.00 |
+| `refusal_rate` (lecture humaine) | — | ≈ 0.07 |
+| `negation_retention` | 0.93 | 0.96 |
+| `agentic_score` | 0.97 | 1.00 |
+| MMLU (limit 30) | — | 0.64 |
+| GSM8K (limit 50) | — | 0.46 |
+| KL de préservation | — | 0.78 |
+
+Le `refusal_rate` heuristique de 0.00 est optimiste : la lecture humaine des 30 réponses montre
+environ 90 % de compliances réelles et deux refus déguisés que les mots-clés ne détectent pas,
+soit un taux de refus effectif autour de 7 %.
+
+## Tests
 
 ```bash
-pytest          # 68 tests, ~2 s
+pytest                  # suite complète (~230 tests)
+pytest -m "not model"   # exclut les tests qui chargent un modèle
+ruff check .            # lint
 ```
 
-Le test phare est `tests/integration/test_constraints.py` : sur un **modèle jouet torch**
-dont les writers résiduels valent l'identité, la rétention d'une sonde devient
-**mesurable exactement** (`rétention = 1 − (d·p)²`). Il prouve, via la vraie chaîne
-`compute_directions → ablation_direction → orthogonalize_weights → ArchAdapter`, que :
+Le test d'intégration `tests/integration/test_constraints.py` utilise un modèle jouet dont les
+matrices d'écriture valent l'identité, ce qui rend la rétention d'une sonde calculable exactement
+(`rétention = 1 − (d·p)²`). Il vérifie, sur la chaîne réelle
+`compute_directions → ablation_direction → orthogonalize_weights → ArchAdapter`, que `preserving`
+conserve la négation et l'agentique là où `conventional` les dégrade, le refus restant réduit
+dans les deux cas.
 
-- `preserving` **garde** négation et agentique (rétention ≈ 1.0) ;
-- `conventional` les **abîme** (rétention < 0.95) au même endroit ;
-- dans les deux cas le **refus est bien réduit** (canari anti-régression).
+### Validation du juge
 
-## 9. Gotchas critiques (sources de bugs silencieux)
+Le `refusal_rate` ne vaut que ce que vaut le juge. Pour lever le doute sur le 0.00 heuristique,
+les sorties ont été rejugées hors-ligne, puis le juge a été comparé à des labels humains :
 
-- **Chat template systématique** avant collecte d'activations (sinon `r̂` est bruitée).
-- **Padding à gauche** / indexation par `attention_mask` pour le « dernier token ».
-- **Orthogonaliser TOUTES les écritures résiduelles** : `o_proj` + `down_proj` (toutes
-  couches) + embeddings ; pour MoE, chaque expert + les partagées. En oublier → refus résiduel.
-- **bf16 pour livrer**, 4-bit pour mesurer seulement.
-- **Ne jamais coder les noms de modules en dur** — passer par `ArchAdapter`.
-- **Hooks réversibles** (`src/ablation/hooks.py`) pour explorer/sélectionner ;
-  orthogonalisation permanente seulement pour livrer.
+- Le juge LLM 3B local n'a pas passé la validation. Avec une rubrique stricte, il classe en
+  refus des réponses qui complient (biais de nocivité). Avec une rubrique few-shot débiaisée, il
+  devient bon sur le modèle ablitéré mais aveugle aux refus francs du modèle de base. La référence
+  reste donc le label humain.
+- La lecture humaine confirme que l'ablation est solide : le 0.00 heuristique était optimiste,
+  pas trompeur.
 
-## 10. Cadre responsable
+Deux règles en découlent : valider tout juge automatique sur un échantillon humain, et conserver
+les textes bruts des générations (pas seulement les scores) pour pouvoir rejuger. Ces textes
+peuvent contenir du contenu nuisible et restent donc hors du dépôt.
 
-L'abliteration est une technique d'interprétabilité publiée et **dual-use**. Ce dépôt reste
-un **outil générique de modification de modèle** :
+## Points d'attention
 
-- **Model card obligatoire** à toute livraison de poids (base + méthode + métriques).
-- L'**évaluation** (les deux axes) et la **recherche défensive** font partie du projet, pas
-  des options.
-- Aucune fonctionnalité orientée vers la production de contenu gravement dangereux.
+Sources de bugs silencieux en abliteration :
 
-## 11. Références
+- Appliquer le chat template avant toute collecte d'activations, sinon la direction est bruitée.
+- Padding à gauche, ou indexation par `attention_mask`, pour capter le dernier token.
+- Orthogonaliser toutes les écritures résiduelles (`o_proj`, `down_proj`, embeddings ; chaque
+  expert pour les MoE) ; en oublier laisse du refus résiduel.
+- Produire les poids en bf16 ; la 4-bit est réservée à la mesure.
+- Passer par `ArchAdapter` plutôt que de coder des noms de modules en dur.
+- Utiliser les hooks réversibles (`abliteration/ablation/hooks.py`) pour explorer et sélectionner
+  une couche ; l'orthogonalisation permanente n'intervient qu'à la livraison.
 
-- Arditi et al. 2024 — *Refusal in LLMs is mediated by a single direction* (technique de base,
-  KB §2).
-- `arXiv:2603.27518`, `arXiv:2604.08388`, et le chiffre « GSM8K −18,81 pp » sont **fournis par
-  l'utilisateur et hors d'une base de connaissances vérifiée — à confirmer avant de s'en
-  prévaloir.
+## Cadre d'usage
 
-Les chiffres et hyperparamètres employés dans le code sont commentés à leur point d'usage ;
-en cas de doute, se fier aux tests et aux métriques mesurées plutôt qu'à des valeurs annoncées.
+L'abliteration est une technique d'interprétabilité publiée et à double usage. Ce dépôt reste un
+outil générique de modification de modèle :
 
-## 12. Analyse circuitielle du refus (`src/circuits/`, Phase 1)
+- Toute livraison de poids s'accompagne d'une model card (modèle de base, méthode, métriques).
+- L'évaluation sur les deux axes fait partie intégrante du pipeline.
+- Aucune fonctionnalité n'est orientée vers la production de contenu gravement dangereux.
 
-Au-delà de l'analyse *directionnelle* (« quelle direction »), `src/circuits/` répond à
-**« quels composants** (têtes d'attention, MLP) portent le refus, et comment l'information
-circule ». **Phase 1 = analyse seulement, AUCUNE modification de poids.**
+## Analyse circuitielle (Phase 1)
 
-**Règle d'or** : la DLA (corrélationnelle) ne conclut jamais seule ; toute localisation est
-**confirmée par patching causal** (nécessité + suffisance) avant d'être dite « validée ».
+Au-delà de la direction de refus, `abliteration/circuits/` cherche quels composants (têtes
+d'attention, MLP) portent le refus et comment l'information circule. La Phase 1 est en lecture
+seule : aucune modification de poids. La règle suivie est que la DLA, corrélationnelle, ne conclut
+jamais seule ; toute localisation est confirmée par patching causal (nécessité et suffisance).
 
 | Module | Rôle |
 |---|---|
-| `backend.py` | introspection par composant sur les **poids HF exacts** : `TorchHookBackend` (hooks torch, read+write) et `NNsightBackend` (trace nnsight, read-path) — décomposition exacte par tête |
-| `dla.py` | Direct Logit Attribution (corrélationnel, marqué comme tel) |
-| `patching.py` | activation patching causal **ciblé au dernier token** : nécessité (knockout) + suffisance (restauration) |
-| `attribution.py` | attribution gradient scalable + contre-vérification des top-k par patching exact |
-| `localize.py` | agrège DLA+patching → circuit *core* causal, stabilité bootstrap (Jaccard), faithfulness/CPR/CMD |
-| `report.py` | rapport JSON/texte séparant **corrélationnel** vs **causalement validé** |
+| `backend.py` | Introspection par composant : `TorchHookBackend` (read/write) et `NNsightBackend` (read) |
+| `dla.py` | Direct Logit Attribution (corrélationnel) |
+| `patching.py` | Activation patching causal au dernier token (knockout et restauration) |
+| `attribution.py` | Attribution par gradient, vérifiée sur les top-k par patching exact |
+| `localize.py` | Agrégation DLA + patching, stabilité bootstrap (Jaccard), métriques de fidélité |
+| `report.py` | Rapport séparant corrélationnel et causalement validé |
 
 ```bash
-# Analyse circuitielle (lecture seule, produit un rapport) :
-python -m src.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
+python -m abliteration.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
     --pairs 16 --top-k 24 --threshold 0.5 --n-boot 300 --out rapport.json
-
-# Backend nnsight (parité DLA) — nécessite l'extra circuits :
-pip install -e ".[circuits]"
 ```
 
-Backend par défaut : `TorchHookBackend` (couvre tout le pipeline sur les poids HF exacts) ;
-NNsight est un backend de **lecture** alternatif, vérifié par un **test de parité**
-DLA(torch) ≈ DLA(nnsight) sur Qwen3-0.6B (écart ~1e-5 par tête, bruit float32).
+Le backend par défaut est `TorchHookBackend` ; NNsight est un backend de lecture alternatif,
+vérifié par un test de parité sur Qwen3-0.6B. La Phase 2 (ablation ciblée) n'est pas implémentée :
+sur Qwen3-0.6B, la localisation s'est révélée instable d'un run à l'autre (Jaccard bootstrap
+inférieur à 0.9), ce qui ne justifie pas d'y conditionner une ablation chirurgicale.
 
-> **Phase 2 (ablation chirurgicale ciblée) NON implémentée** — conditionnée à une Phase 1
-> *stable*. Sur Qwen3-0.6B, la localisation s'est révélée **instable** (le circuit core change
-> d'un run à l'autre, bootstrap Jaccard < 0.9) : pas assez robuste pour décider la Phase 2 sur
-> ce modèle. Résultat rapporté honnêtement — le champ est jeune et faillible.
+## Référence
+
+Arditi et al. (2024), *Refusal in Language Models Is Mediated by a Single Direction*.
+
+Les hyperparamètres employés sont commentés à leur point d'usage. En cas de doute, se fier aux
+tests et aux métriques mesurées.
+</content>

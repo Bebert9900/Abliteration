@@ -1,0 +1,39 @@
+{
+  "base": "Qwen/Qwen2.5-3B-Instruct",
+  "ablated": "./out-3b-abl",
+  "limit": 30,
+  "results": {
+    "base": {
+      "gsm8k": {
+        "benchmark": "gsm8k",
+        "task": "gsm8k",
+        "metric": "exact_match,strict-match",
+        "score": 0.0,
+        "n": 30
+      },
+      "mmlu": {
+        "benchmark": "mmlu",
+        "task": "mmlu",
+        "metric": "acc,none",
+        "score": 0.6625730994152047,
+        "n": null
+      }
+    },
+    "ablated": {
+      "gsm8k": {
+        "benchmark": "gsm8k",
+        "task": "gsm8k",
+        "metric": "exact_match,strict-match",
+        "score": 0.0,
+        "n": 30
+      },
+      "mmlu": {
+        "benchmark": "mmlu",
+        "task": "mmlu",
+        "metric": "acc,none",
+        "score": 0.6362573099415205,
+        "n": null
+      }
+    }
+  }
+}

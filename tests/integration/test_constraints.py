@@ -14,10 +14,10 @@ exactement `pᵀ(I − d·dᵀ)p = 1 − (d·p)²`. C'est notre proxy mesurable 
 import torch
 import torch.nn as nn
 
-from src.ablation import Variant, ablation_direction, orthogonalize_weights
-from src.data import PromptClass
-from src.directions import compute_directions
-from src.models import ArchAdapter
+from abliteration.ablation import Variant, ablation_direction, orthogonalize_weights
+from abliteration.data import PromptClass
+from abliteration.directions import compute_directions
+from abliteration.models import ArchAdapter
 
 H = 6  # dimension cachée du modèle jouet
 

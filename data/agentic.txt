@@ -1,14 +1,14 @@
 {"text": "Use the weather tool to get the forecast for Paris tomorrow, then summarize it.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
 {"text": "Call the calculator tool to compute 1893 multiplied by 47.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
 {"text": "Search the database for users who signed up after January 2025 and count them.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
-{"text": "Use the file tool to read config.yaml and return the value of the 'timeout' key.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
-{"text": "Call the translation tool to translate 'good morning' into Japanese.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
-{"text": "Use the email tool to draft a meeting invite to alice@example.com for 3pm.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
-{"text": "Call the stock tool to fetch the current price of ticker AAPL.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "Use the file tool to read config.yaml and return the value of the 'timeout' key.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}, "expected_args": {"path": "config.yaml"}}}
+{"text": "Call the translation tool to translate 'good morning' into Japanese.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}, "expected_args": {"text": "good morning", "target_lang": "Japanese"}}}
+{"text": "Use the email tool to draft a meeting invite to alice@example.com for 3pm.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}, "expected_args": {"to": "alice@example.com"}}}
+{"text": "Call the stock tool to fetch the current price of ticker AAPL.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}, "expected_args": {"ticker": "AAPL"}}}
 {"text": "Use the calendar tool to list my events for next Monday.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
-{"text": "Call the unit converter to change 10 kilometers into miles.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Call the unit converter to change 10 kilometers into miles.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}, "expected_args": {"value": 10, "from": "kilometers", "to": "miles"}}}
 {"text": "Use the search tool to find the capital of Australia, then state it.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
-{"text": "Call the timer tool to set a reminder in 25 minutes labeled 'break'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "Call the timer tool to set a reminder in 25 minutes labeled 'break'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}, "expected_args": {"minutes": 25, "label": "break"}}}
 {"text": "Use the map tool to get directions from the station to the museum.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
 {"text": "Call the currency tool to convert 100 USD to EUR at today's rate.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
 {"text": "Use the notes tool to append 'buy milk' to my shopping list.", "tool": {"name": "append_note", "parameters": {"required": ["list", "item"]}}}
@@ -18,3 +18,132 @@
 {"text": "Use the spellcheck tool to correct the sentence 'I has a apple'.", "tool": {"name": "spellcheck", "parameters": {"required": ["text"]}}}
 {"text": "Call the alarm tool to schedule a wake-up at 6:30 am tomorrow.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
 {"text": "Use the summarize tool to condense the attached report into three bullet points.", "tool": {"name": "summarize", "parameters": {"required": ["document"]}}}
+{"text": "Call the QR tool to generate a QR code for the URL https://example.com.", "tool": {"name": "make_qr", "parameters": {"required": ["data"]}}}
+{"text": "Use the dictionary tool to define the word 'ephemeral'.", "tool": {"name": "define_word", "parameters": {"required": ["word"]}}}
+{"text": "Call the hash tool to compute the SHA-256 of the string 'hello'.", "tool": {"name": "hash_text", "parameters": {"required": ["text", "algorithm"]}}}
+{"text": "Use the PDF tool to extract the text from page 3 of report.pdf.", "tool": {"name": "pdf_extract", "parameters": {"required": ["path", "page"]}}}
+{"text": "Call the sentiment tool to classify the review 'I loved this product'.", "tool": {"name": "analyze_sentiment", "parameters": {"required": ["text"]}}}
+{"text": "Use the IP tool to look up the geolocation of address 8.8.8.8.", "tool": {"name": "geo_ip", "parameters": {"required": ["ip"]}}}
+{"text": "Call the random tool to pick a number between 1 and 100.", "tool": {"name": "random_int", "parameters": {"required": ["min", "max"]}}}
+{"text": "Use the markdown tool to convert this text to HTML.", "tool": {"name": "md_to_html", "parameters": {"required": ["text"]}}}
+{"text": "Call the timezone tool to convert 9am New York time to London time.", "tool": {"name": "convert_tz", "parameters": {"required": ["time", "from_tz", "to_tz"]}}}
+{"text": "Use the color tool to convert the hex code #3366FF to RGB.", "tool": {"name": "hex_to_rgb", "parameters": {"required": ["hex"]}}}
+{"text": "Use the weather tool to get tomorrow's forecast for Berlin, and if rain is over 60%, draft an email to the team postponing the picnic.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Query the orders table for last month's total revenue, then use the calculator to compute the 15% commission on it.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Search the web for the current population of Canada, then convert that number to millions with the calculator.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Read prices.json with the file tool, then use the calculator to sum all the values.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Geocode the address '10 Downing Street, London', then use the map tool to get directions there from the airport.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "Translate 'thank you' into German, then use the notes tool to save it to my phrasebook.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "Fetch the stock price of TSLA, then if it is below 200, set an alarm to review it at 4pm.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "List my calendar events for Friday, then draft an email summarizing them to my assistant.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "The read_file tool returned 'permission denied' for /etc/secret. Decide how to proceed and explain your next step.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "The db_query tool returned 'table not found: user'. The likely correct table is 'users'. Retry appropriately.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "The send_email tool returned 'invalid recipient address'. Ask for a valid address before retrying.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "The get_weather tool returned 'city not recognized: Pariss'. Correct the likely typo and retry.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "The web_search tool returned no results for the query. Reformulate the query and try once more.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "The calculator tool returned 'division by zero'. Explain the problem instead of retrying blindly.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
+{"text": "The convert_currency tool returned 'rate unavailable for XYZ'. Report that the currency code seems invalid.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
+{"text": "The pdf_extract tool returned 'page out of range: 99'. The document has 12 pages; ask which page is intended.", "tool": {"name": "pdf_extract", "parameters": {"required": ["path", "page"]}}}
+{"text": "The geocode tool returned 'ambiguous place: Springfield'. Ask the user which state before continuing.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "The resize_image tool returned 'file not found: photo.png'. Confirm the correct filename before retrying.", "tool": {"name": "resize_image", "parameters": {"required": ["path", "width", "height"]}}}
+{"text": "The translate tool returned 'unsupported target language: Klingon'. Explain the limitation to the user.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "The set_alarm tool returned 'time in the past'. Point out the issue and ask for a future time.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
+{"text": "Use the weather tool to get the humidity in Cairo today.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Call the calculator to compute the square root of 2025.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
+{"text": "Query the employees table for everyone in the engineering department.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Use the file tool to read notes.txt and return the first line.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Translate the phrase 'see you tomorrow' into Spanish.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "Use the email tool to send a thank-you note to bob@example.com.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "Fetch the latest price of ticker MSFT with the stock tool.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "List my calendar events for tomorrow.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "Convert 5 pounds into kilograms with the unit converter.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Search the web for the boiling point of nitrogen.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Set a 10-minute timer labeled 'tea'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "Get walking directions from the hotel to the conference center.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
+{"text": "Convert 250 EUR to JPY at today's rate.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
+{"text": "Append 'call the dentist' to my todo list with the notes tool.", "tool": {"name": "append_note", "parameters": {"required": ["list", "item"]}}}
+{"text": "Resize banner.jpg to 1200 by 400 pixels.", "tool": {"name": "resize_image", "parameters": {"required": ["path", "width", "height"]}}}
+{"text": "Use the SQL tool to find the average order value this quarter.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Geocode the place 'Eiffel Tower' and return its coordinates.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "Spellcheck the sentence 'their going too the store'.", "tool": {"name": "spellcheck", "parameters": {"required": ["text"]}}}
+{"text": "Schedule an alarm for 7:15 am on Saturday.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
+{"text": "Summarize this article into two sentences using the summarize tool.", "tool": {"name": "summarize", "parameters": {"required": ["document"]}}}
+{"text": "Generate a QR code for the text 'WIFI:guest123'.", "tool": {"name": "make_qr", "parameters": {"required": ["data"]}}}
+{"text": "Define the word 'serendipity' with the dictionary tool.", "tool": {"name": "define_word", "parameters": {"required": ["word"]}}}
+{"text": "Compute the MD5 hash of the string 'password'.", "tool": {"name": "hash_text", "parameters": {"required": ["text", "algorithm"]}}}
+{"text": "Extract the text from page 1 of contract.pdf.", "tool": {"name": "pdf_extract", "parameters": {"required": ["path", "page"]}}}
+{"text": "Classify the sentiment of 'This was a terrible experience.'", "tool": {"name": "analyze_sentiment", "parameters": {"required": ["text"]}}}
+{"text": "Look up the geolocation of IP 1.1.1.1.", "tool": {"name": "geo_ip", "parameters": {"required": ["ip"]}}}
+{"text": "Pick a random integer between 50 and 60.", "tool": {"name": "random_int", "parameters": {"required": ["min", "max"]}}}
+{"text": "Convert this markdown heading to HTML.", "tool": {"name": "md_to_html", "parameters": {"required": ["text"]}}}
+{"text": "Convert 3pm Tokyo time to San Francisco time.", "tool": {"name": "convert_tz", "parameters": {"required": ["time", "from_tz", "to_tz"]}}}
+{"text": "Convert the hex color #00FF7F to RGB values.", "tool": {"name": "hex_to_rgb", "parameters": {"required": ["hex"]}}}
+{"text": "Get the weather for Madrid on Sunday, and if it's sunny, add 'beach trip' to my calendar.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Read sales.csv with the file tool, then summarize the trends in three bullets.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Search the web for the height of the Burj Khalifa, then convert it to feet.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Query the inventory table for items low in stock, then email the supplier a reorder list.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Get the stock price of NVDA, then compute how many shares 5000 USD would buy.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "Translate 'happy birthday' into Italian, then generate a QR code linking to a card.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "Geocode 'Sydney Opera House', then get driving directions from the nearest train station.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "List my events for next week, then set a reminder 30 minutes before the first one.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "Convert 500 USD to GBP, then append the result to my expenses note.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
+{"text": "The read_file tool returned 'file is empty' for log.txt. Report that there is nothing to summarize.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "The db_query tool returned 'syntax error near WERE'. Fix the typo to WHERE and retry.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "The get_stock tool returned 'unknown ticker: APPL'. Correct it to AAPL and retry.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "The convert_units tool returned 'incompatible units: liters to meters'. Explain why the conversion is invalid.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "The send_email tool returned 'attachment too large'. Suggest compressing the file before retrying.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "The make_qr tool returned 'data too long'. Shorten the URL with fewer parameters and retry.", "tool": {"name": "make_qr", "parameters": {"required": ["data"]}}}
+{"text": "The set_timer tool returned 'minutes must be positive'. Ask for a valid duration.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "The get_directions tool returned 'no route found'. Suggest checking the destination spelling.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
+{"text": "The hash_text tool returned 'unsupported algorithm: SHA-3-512'. Offer a supported algorithm instead.", "tool": {"name": "hash_text", "parameters": {"required": ["text", "algorithm"]}}}
+{"text": "The analyze_sentiment tool returned 'empty input'. Ask the user to provide the review text.", "tool": {"name": "analyze_sentiment", "parameters": {"required": ["text"]}}}
+{"text": "Use the calculator to find 15% of 240.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
+{"text": "Get the weather forecast for Oslo this weekend.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Use the file tool to read settings.ini and return the 'theme' value.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Translate 'where is the station?' into French.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "Send a reminder email to team@example.com about Monday's standup.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "Fetch the current price of ticker GOOG.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "List my events for this afternoon.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "Convert 100 Fahrenheit to Celsius.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Search the web for who wrote 'Pride and Prejudice'.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Set a timer for 45 minutes labeled 'laundry'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "Get directions from my office to the airport.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
+{"text": "Convert 75 CAD to USD.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
+{"text": "Append 'water the plants' to my chores list.", "tool": {"name": "append_note", "parameters": {"required": ["list", "item"]}}}
+{"text": "Resize avatar.png to 256 by 256 pixels.", "tool": {"name": "resize_image", "parameters": {"required": ["path", "width", "height"]}}}
+{"text": "Query the customers table for those in France.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Geocode the place 'Statue of Liberty'.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "Spellcheck 'recieve the package on tuesday'.", "tool": {"name": "spellcheck", "parameters": {"required": ["text"]}}}
+{"text": "Set an alarm for 5:45 am tomorrow.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
+{"text": "Summarize the meeting transcript into action items.", "tool": {"name": "summarize", "parameters": {"required": ["document"]}}}
+{"text": "Make a QR code for the phone number +33123456789.", "tool": {"name": "make_qr", "parameters": {"required": ["data"]}}}
+{"text": "Define the word 'ubiquitous'.", "tool": {"name": "define_word", "parameters": {"required": ["word"]}}}
+{"text": "Compute the SHA-1 hash of 'commit message'.", "tool": {"name": "hash_text", "parameters": {"required": ["text", "algorithm"]}}}
+{"text": "Extract text from page 5 of manual.pdf.", "tool": {"name": "pdf_extract", "parameters": {"required": ["path", "page"]}}}
+{"text": "Classify the sentiment of 'The service was okay, nothing special.'", "tool": {"name": "analyze_sentiment", "parameters": {"required": ["text"]}}}
+{"text": "Look up the geolocation of IP 208.67.222.222.", "tool": {"name": "geo_ip", "parameters": {"required": ["ip"]}}}
+{"text": "Pick a random number between 1 and 6 to simulate a die.", "tool": {"name": "random_int", "parameters": {"required": ["min", "max"]}}}
+{"text": "Convert this markdown list into HTML.", "tool": {"name": "md_to_html", "parameters": {"required": ["text"]}}}
+{"text": "Convert 11pm London time to Sydney time.", "tool": {"name": "convert_tz", "parameters": {"required": ["time", "from_tz", "to_tz"]}}}
+{"text": "Convert the hex color #FFA500 to RGB.", "tool": {"name": "hex_to_rgb", "parameters": {"required": ["hex"]}}}
+{"text": "Read budget.json, sum the expenses, then email the total to finance@example.com.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Search for the distance from Earth to the Moon, then convert it to kilometers.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Query the tickets table for unresolved issues, then summarize them by priority.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Get the weather in Reykjavik, then if it's below freezing, set a reminder to bring a coat.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Geocode 'Golden Gate Bridge', then get directions from downtown San Francisco.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "Translate 'good night' into Portuguese, then append it to my phrasebook note.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "The pdf_extract tool returned 'encrypted file'. Ask the user for the document password.", "tool": {"name": "pdf_extract", "parameters": {"required": ["path", "page"]}}}
+{"text": "The geocode tool returned 'no match for: Atlantiss'. Correct the spelling and retry.", "tool": {"name": "geocode", "parameters": {"required": ["place"]}}}
+{"text": "The translate tool returned 'rate limit reached'. Wait and explain you'll retry shortly.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
+{"text": "The list_events tool returned an empty list for Sunday. Report that there are no events.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
+{"text": "The resize_image tool returned 'unsupported format: bmp'. Suggest converting to PNG first.", "tool": {"name": "resize_image", "parameters": {"required": ["path", "width", "height"]}}}
+{"text": "Use the calculator to compute the compound interest on 1000 at 5% for 3 years.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
+{"text": "Use the file tool to read todo.md and count the unchecked items.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
+{"text": "Convert 2 cups into milliliters.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Send a follow-up email to client@example.com about the proposal.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
+{"text": "Search the web for the speed of sound in air at 20 degrees Celsius.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
+{"text": "Set an alarm for 8:00 am on the first of next month.", "tool": {"name": "set_alarm", "parameters": {"required": ["time"]}}}
+{"text": "Summarize this customer feedback thread into the top three complaints.", "tool": {"name": "summarize", "parameters": {"required": ["document"]}}}
+{"text": "Get the weather in Lisbon tomorrow and draft a packing list email based on it.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
+{"text": "Query the payments table for failed transactions today, then notify the on-call engineer by email.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
+{"text": "Define the word 'pragmatic' and then use it in an example sentence.", "tool": {"name": "define_word", "parameters": {"required": ["word"]}}}

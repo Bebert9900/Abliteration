@@ -18,6 +18,7 @@ env/
 .env
 
 # Modèles & artefacts lourds (ne jamais committer de poids)
+# `artifacts/` = modèles abliteré produits (out-3b-abl, out-3b-npb, …) — local seulement.
 out/
 out*/
 outputs/
@@ -33,6 +34,11 @@ checkpoints/
 # Caches HuggingFace / datasets locaux
 .cache/
 hf_cache/
+
+# Générations brutes d'éval = peuvent contenir du contenu harmful (sorties du modèle
+# abliteré). Ne JAMAIS publier sur un repo public. Les rapports agrégés (scores/labels) OK.
+rejudge_generations.json
+*_generations.json
 
 # Divers
 .DS_Store

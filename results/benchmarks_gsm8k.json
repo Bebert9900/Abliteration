@@ -1,0 +1,16 @@
+{
+  "base": {
+    "benchmark": "gsm8k",
+    "task": "gsm8k",
+    "metric": "exact_match,flexible-extract",
+    "score": 0.5,
+    "n": 50
+  },
+  "ablated": {
+    "benchmark": "gsm8k",
+    "task": "gsm8k",
+    "metric": "exact_match,flexible-extract",
+    "score": 0.46,
+    "n": 50
+  }
+}
