@@ -394,6 +394,13 @@ produits incombe entièrement à l'utilisateur.
 Le logiciel est fourni « en l'état », sans garantie d'aucune sorte. Les auteurs ne sauraient être
 tenus responsables des dommages résultant de son utilisation.
 
+## Auteurs
+
+Développé par Bebert9900, en collaboration avec QuelleEpoch et
+[LevelUp](https://www.levelup.run/).
+
 ## Licence
 
 Distribué sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour le texte complet.
+
+Copyright © 2026 Bebert9900, QuelleEpoch et LevelUp.
