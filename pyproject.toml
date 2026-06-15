@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Outil d'abliteration de LLM préservant négation logique et capacités agentiques"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 dependencies = [
     "torch>=2.2",
     "transformers>=4.44",

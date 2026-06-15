@@ -347,4 +347,24 @@ Arditi et al. (2024), *Refusal in Language Models Is Mediated by a Single Direct
 
 Les hyperparamètres employés sont commentés à leur point d'usage. En cas de doute, se fier aux
 tests et aux métriques mesurées.
-</content>
+
+## Disclaimer
+
+Ce projet est un outil de recherche en interprétabilité, fourni à des fins éducatives et
+défensives. L'abliteration est une technique à double usage : retirer la direction de refus d'un
+modèle lève des garde-fous mis en place par ses auteurs. La responsabilité de l'usage des modèles
+produits incombe entièrement à l'utilisateur.
+
+- N'utilisez ce logiciel que sur des modèles dont la licence et les conditions d'utilisation
+  l'autorisent.
+- Toute diffusion d'un modèle modifié doit être accompagnée d'une model card indiquant le modèle
+  de base, la méthode appliquée et les métriques d'évaluation.
+- Le logiciel n'inclut aucune fonctionnalité destinée à produire du contenu gravement dangereux,
+  et n'a pas vocation à en faciliter la production.
+
+Le logiciel est fourni « en l'état », sans garantie d'aucune sorte. Les auteurs ne sauraient être
+tenus responsables des dommages résultant de son utilisation.
+
+## Licence
+
+Distribué sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour le texte complet.
