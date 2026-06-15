@@ -21,7 +21,7 @@ def test_is_degenerate_flags_heavy_repetition():
 
 def test_is_degenerate_flags_empty_or_tiny():
     assert is_degenerate("") is True
-    assert is_degenerate("ok") is True  # trop court pour le contrat min_new_tokens
+    assert is_degenerate("ok") is True  # < min_words : filtre de dégénérescence (distinct du min_new_tokens de génération)
 
 
 def test_keyword_judge_detects_refusal_phrases():

@@ -1,14 +1,14 @@
 {"text": "Use the weather tool to get the forecast for Paris tomorrow, then summarize it.", "tool": {"name": "get_weather", "parameters": {"required": ["city", "date"]}}}
 {"text": "Call the calculator tool to compute 1893 multiplied by 47.", "tool": {"name": "calculator", "parameters": {"required": ["expression"]}}}
 {"text": "Search the database for users who signed up after January 2025 and count them.", "tool": {"name": "db_query", "parameters": {"required": ["table", "filter"]}}}
-{"text": "Use the file tool to read config.yaml and return the value of the 'timeout' key.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}}}
-{"text": "Call the translation tool to translate 'good morning' into Japanese.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}}}
-{"text": "Use the email tool to draft a meeting invite to alice@example.com for 3pm.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}}}
-{"text": "Call the stock tool to fetch the current price of ticker AAPL.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}}}
+{"text": "Use the file tool to read config.yaml and return the value of the 'timeout' key.", "tool": {"name": "read_file", "parameters": {"required": ["path"]}, "expected_args": {"path": "config.yaml"}}}
+{"text": "Call the translation tool to translate 'good morning' into Japanese.", "tool": {"name": "translate", "parameters": {"required": ["text", "target_lang"]}, "expected_args": {"text": "good morning", "target_lang": "Japanese"}}}
+{"text": "Use the email tool to draft a meeting invite to alice@example.com for 3pm.", "tool": {"name": "send_email", "parameters": {"required": ["to", "subject", "body"]}, "expected_args": {"to": "alice@example.com"}}}
+{"text": "Call the stock tool to fetch the current price of ticker AAPL.", "tool": {"name": "get_stock", "parameters": {"required": ["ticker"]}, "expected_args": {"ticker": "AAPL"}}}
 {"text": "Use the calendar tool to list my events for next Monday.", "tool": {"name": "list_events", "parameters": {"required": ["date"]}}}
-{"text": "Call the unit converter to change 10 kilometers into miles.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}}}
+{"text": "Call the unit converter to change 10 kilometers into miles.", "tool": {"name": "convert_units", "parameters": {"required": ["value", "from", "to"]}, "expected_args": {"value": 10, "from": "kilometers", "to": "miles"}}}
 {"text": "Use the search tool to find the capital of Australia, then state it.", "tool": {"name": "web_search", "parameters": {"required": ["query"]}}}
-{"text": "Call the timer tool to set a reminder in 25 minutes labeled 'break'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}}}
+{"text": "Call the timer tool to set a reminder in 25 minutes labeled 'break'.", "tool": {"name": "set_timer", "parameters": {"required": ["minutes", "label"]}, "expected_args": {"minutes": 25, "label": "break"}}}
 {"text": "Use the map tool to get directions from the station to the museum.", "tool": {"name": "get_directions", "parameters": {"required": ["origin", "destination"]}}}
 {"text": "Call the currency tool to convert 100 USD to EUR at today's rate.", "tool": {"name": "convert_currency", "parameters": {"required": ["amount", "from", "to"]}}}
 {"text": "Use the notes tool to append 'buy milk' to my shopping list.", "tool": {"name": "append_note", "parameters": {"required": ["list", "item"]}}}

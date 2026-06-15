@@ -44,7 +44,7 @@ def generate_responses(
     formatter,
     texts: list[str],
     max_new_tokens: int = 128,
-    min_new_tokens: int = 16,
+    min_new_tokens: int = 100,
     batch_size: int = 8,
     device=None,
 ) -> list[str]:

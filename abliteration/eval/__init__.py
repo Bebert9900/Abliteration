@@ -1,17 +1,20 @@
 """Module éval : refus, KL, négation, agentique, benchmarks externes, rapport bi-axe."""
 from .agentic import (
+    AgenticBreakdown,
     ToolCall,
     agentic_score,
     arg_accuracy,
+    evaluate_agentic_outputs,
     hallucinated_args,
     multi_step_success,
     parse_tool_call,
+    required_arg_completeness,
     schema_valid,
 )
 from .benchmarks import BenchmarkNotInstalled, available_benchmarks, run_benchmark
 from .generate import dump_generations, generate_responses, harmless_logits
 from .judges import is_sycophantic, negates_correctly
-from .kl import kl_divergence
+from .kl import KLDiagnostic, kl_diagnostic, kl_divergence, per_token_kl
 from .llm_judge import (
     EVASIVE,
     LABELS,
@@ -45,6 +48,9 @@ __all__ = [
     "follow_rate",
     "empty_rate",
     "kl_divergence",
+    "per_token_kl",
+    "kl_diagnostic",
+    "KLDiagnostic",
     "generate_responses",
     "harmless_logits",
     "dump_generations",
@@ -69,6 +75,9 @@ __all__ = [
     "arg_accuracy",
     "multi_step_success",
     "agentic_score",
+    "required_arg_completeness",
+    "evaluate_agentic_outputs",
+    "AgenticBreakdown",
     # benchmarks & rapport
     "BenchmarkNotInstalled",
     "available_benchmarks",
