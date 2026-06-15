@@ -18,6 +18,7 @@ dependencies = [
 optimize = ["optuna"]
 quant = ["bitsandbytes"]          # mesure uniquement, jamais pour livrer des poids
 eval = ["lm-eval"]                # MMLU/GSM8K/BBH/GPQA/IFEval (à valider sur py3.14)
+heal = ["peft"]                   # LoRA SFT de récupération agentique (abliteration.heal)
 dev = ["pytest>=8"]
 
 # Point d'entrée console : `abliterate <sous-commande>` une fois `pip install -e .` fait.
