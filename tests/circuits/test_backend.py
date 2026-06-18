@@ -12,7 +12,7 @@ import torch
 from toymodel import ids as _ids
 from toymodel import make_model as _model
 
-from abliteration.circuits.backend import (
+from meridian.circuits.backend import (
     Component,
     ComponentKind,
     ModelInfo,

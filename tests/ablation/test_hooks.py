@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 
-from abliteration.ablation import register_ablation_hooks, register_steering_hooks
+from meridian.ablation import register_ablation_hooks, register_steering_hooks
 
 
 def test_hook_removes_direction_then_is_reversible():

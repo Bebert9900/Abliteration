@@ -1,7 +1,7 @@
 """Tests de la matrice de séparabilité entre concepts."""
 import torch
 
-from abliteration.concepts import ConceptDirection, pairwise_separability
+from meridian.concepts import ConceptDirection, pairwise_separability
 
 
 def _cd(name, vec):

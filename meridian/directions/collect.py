@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import torch
 
-from abliteration.data.formatting import last_token_index
+from meridian.data.formatting import last_token_index
 
 
 def pooled_last_token(hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -23,7 +23,7 @@ def collect_means(model, formatter, texts: list[str], batch_size: int = 8, devic
     """Moyenne, par couche, des activations du dernier token sur `texts` -> (L+1, H).
 
     `model(**enc, output_hidden_states=True)` doit exposer `.hidden_states` (tuple L+1).
-    Le chat template et le padding gauche sont gérés par `formatter` (cf. abliteration.data).
+    Le chat template et le padding gauche sont gérés par `formatter` (cf. meridian.data).
     """
     sums = None
     n = 0

@@ -1,18 +1,19 @@
-"""CLI de l'outil d'abliteration.
+"""CLI Meridian — cartographier et surveiller les directions qu'un LLM encode.
 
-Sous-commandes (toutes prennent un `model` positionnel) :
-  extract   collecte d'activations + calcul des directions 4 classes
-  select    choix de la meilleure couche (séparabilité)
-  apply     applique l'ablation aux poids et sauvegarde le modèle
-  abliterate  pipeline complet extract → select → apply → eval
-  optimize  recherche Optuna des poids λ de l'objectif composite
-  eval      évalue un modèle (rapport bi-axe : refus + capacités préservées)
-  diagnose  diagnostic des directions/séparabilité (lecture seule, pas de sortie)
-  heal      réparation post-abliteration (LoRA SFT sur traces propres)
+Finalité première : suivre l'évolution des directions internes au fil d'un fine-tuning
+(atlas-monitor / AtlasDriftCallback). L'abliteration (ablation dirigée) est l'une des capacités.
 
-La variante `preserving` orthogonalise la direction de refus contre les
-directions à préserver (`--preserve negation,agentic,...`) afin de ne casser
-ni la négation logique légitime ni les capacités agentiques (tool use).
+Sous-commandes principales :
+  atlas-build     atlas de directions (sujets supervisés + latents SVD) d'un modèle
+  atlas-identify  sujets les plus proches d'une direction (hors-ligne)
+  atlas-monitor   dérive de l'atlas à travers des checkpoints (suivi de fine-tuning)
+  extract/select/apply/abliterate  pipeline d'ablation dirigée (extract → … → eval)
+  optimize/eval/diagnose           recherche d'hyperparamètres, éval bi-axe, diagnostic
+  concept-*       direction/séparabilité/probe/steer d'un concept arbitraire
+  heal            réparation post-abliteration (LoRA SFT sur traces propres)
+
+La variante `preserving` orthogonalise la direction de refus contre les directions à préserver
+(`--preserve negation,agentic,...`) afin de ne casser ni la négation logique ni l'agentique.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ import logging
 
 from .output import emit_result
 
-log = logging.getLogger("abliteration")
+log = logging.getLogger("meridian")
 
 
 def parse_preserve(value: str | None) -> list[str]:
@@ -127,7 +128,7 @@ def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-cache", action="store_true", dest="no_cache",
                    help="Désactive le cache disque des activations/logits de base.")
     p.add_argument("--cache-dir", default=None, dest="cache_dir",
-                   help="Dossier de cache (défaut : $ABLITERATION_CACHE ou ~/.cache/abliteration).")
+                   help="Dossier de cache (défaut : $MERIDIAN_CACHE ou ~/.cache/meridian).")
 
 
 def _add_layers(p: argparse.ArgumentParser) -> None:
@@ -156,7 +157,7 @@ def _add_variant(p: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="abliterate", description=__doc__)
+    parser = argparse.ArgumentParser(prog="meridian", description=__doc__)
     parser.add_argument("-v", "--verbose", action="store_true", help="Logs détaillés.")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -327,6 +328,48 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--layer", type=int, default=None,
                    help="Couche d'analyse (défaut : moyenne sur toutes les couches).")
     p.set_defaults(func=cmd_concept_separability)
+
+    # atlas-build (recherche : atlas de directions sujet + latent) ---------- #
+    p = sub.add_parser("atlas-build",
+                       help="Construit l'atlas de directions (sujets + latents) d'un modèle.")
+    _add_model(p); _add_common(p)
+    p.add_argument("--dataset", required=True,
+                   help="Dataset étiqueté : JSONL (clé de label) ou dossier (un .txt par sujet).")
+    p.add_argument("--label-key", default="subject", dest="label_key",
+                   help="Clé de label dans le JSONL (défaut : 'subject').")
+    p.add_argument("--k", type=int, default=32, help="Nombre de directions latentes (SVD).")
+    p.add_argument("--center", choices=["rest", "grand"], default="rest",
+                   help="Référence du contraste par sujet : reste (one-vs-rest) ou moyenne globale.")
+    p.add_argument("--limit", type=int, default=None,
+                   help="Sous-échantillonne ce nombre de textes par sujet (coût).")
+    p.add_argument("--out", required=True, help="Fichier de sortie de l'atlas (.safetensors).")
+    p.set_defaults(func=cmd_atlas_build)
+
+    # atlas-identify (recherche : direction de n'importe quel sujet) -------- #
+    p = sub.add_parser("atlas-identify",
+                       help="Sujets de l'atlas les plus proches d'une direction (hors-ligne).")
+    p.add_argument("--atlas", required=True, help="Atlas .safetensors (issu d'atlas-build).")
+    p.add_argument("--subject", default=None, help="Sujet de l'atlas dont on cherche les voisins.")
+    p.add_argument("--direction", default=None, help="Direction .pt (ConceptDirection ou tenseur).")
+    p.add_argument("--k", type=int, default=5, help="Nombre de voisins renvoyés.")
+    p.add_argument("--layer", type=int, default=None, help="Couche d'analyse (défaut : médiane).")
+    p.set_defaults(func=cmd_atlas_identify)
+
+    # atlas-monitor (recherche : suivi de l'atlas le long d'un fine-tuning) - #
+    p = sub.add_parser("atlas-monitor",
+                       help="Suit la dérive de l'atlas à travers des checkpoints (fine-tuning).")
+    _add_common(p)
+    p.add_argument("--checkpoints", required=True,
+                   help="Checkpoints (liste virgulée, ordre temporel), ex 'ckpt-100,ckpt-200'.")
+    p.add_argument("--dataset", required=True, help="Dataset étiqueté (cf. atlas-build).")
+    p.add_argument("--label-key", default="subject", dest="label_key", help="Clé de label JSONL.")
+    p.add_argument("--k", type=int, default=32, help="Nombre de directions latentes (SVD).")
+    p.add_argument("--center", choices=["rest", "grand"], default="rest",
+                   help="Référence du contraste par sujet.")
+    p.add_argument("--ref", default=None, help="Checkpoint de référence (défaut : le premier).")
+    p.add_argument("--limit", type=int, default=None, help="Sous-échantillon de textes par sujet.")
+    p.add_argument("--report", default=None, help="Fichier JSON du rapport de suivi.")
+    p.set_defaults(func=cmd_atlas_monitor)
 
     # schema (découverte machine) ------------------------------------------- #
     p = sub.add_parser("schema", help="Décrit toutes les commandes/arguments/sorties en JSON.")
@@ -1123,6 +1166,122 @@ def cmd_concept_separability(ns) -> int:
         log.warning("%s", w)
     return emit_result(ns, "concept-separability", {
         "concepts": sm.names, "matrix": sm.matrix, "layer": sm.layer, "warnings": warnings,
+    })
+
+
+# --------------------------------------------------------------------------- #
+# Recherche : atlas de directions (identifier & suivre n'importe quel sujet)
+# --------------------------------------------------------------------------- #
+def cmd_atlas_build(ns) -> int:
+    """Construit l'atlas de directions d'un modèle depuis un dataset étiqueté, et le sauvegarde."""
+    from .atlas import build_atlas, load_labeled, save_atlas
+    from .concepts import ConceptDirection, pairwise_separability
+    from .data import PromptFormatter
+    from .models import load_model
+
+    groups = load_labeled(ns.dataset, label_key=ns.label_key)
+    if ns.limit:
+        log.info("Atlas : sous-échantillon de %d textes par sujet (--limit).", ns.limit)
+    log.info("Dataset étiqueté : %d sujets (%s)", len(groups),
+             ", ".join(f"{k}:{len(v)}" for k, v in groups.items()))
+    model, tok = load_model(ns.model, dtype=ns.dtype, device_map=ns.device or "auto")
+    formatter = PromptFormatter(tok)
+    meta = {"model": ns.model, "dataset": ns.dataset, "label_key": ns.label_key,
+            "seed": ns.seed, "center": ns.center}
+    atlas = build_atlas(model, formatter, groups, ns.k, batch_size=ns.batch_size,
+                        device=ns.device, center=ns.center, limit=ns.limit, meta=meta)
+    save_atlas(atlas, ns.out)
+    log.info("Atlas écrit dans %s (%d sujets, k=%d)", ns.out, atlas.n_subjects, atlas.k)
+
+    match = atlas.match_subjects_to_latents()
+    sep = pairwise_separability(
+        {n: ConceptDirection(n, atlas.subject_dirs[i]) for i, n in enumerate(atlas.subject_names)})
+    warnings = sep.warnings()
+    for w in warnings:
+        log.warning("%s", w)
+    return emit_result(ns, "atlas-build", {
+        "atlas_path": ns.out, "n_subjects": atlas.n_subjects, "k": atlas.k,
+        "explained_variance_top": [float(atlas.explained_variance[l, 0])
+                                   for l in range(atlas.n_layers)],
+        "subject_to_latent": match["subject_to_latent"],
+        "separability_warnings": warnings,
+    })
+
+
+def cmd_atlas_identify(ns) -> int:
+    """Identifie le(s) sujet(s) de l'atlas le(s) plus proche(s) d'une direction (hors-ligne)."""
+    import torch
+
+    from .atlas import load_atlas
+
+    atlas = load_atlas(ns.atlas)
+    if ns.subject:
+        if ns.subject not in atlas.subject_names:
+            raise ValueError(f"Sujet '{ns.subject}' absent de l'atlas {atlas.subject_names}.")
+        query = atlas.subject_dirs[atlas.subject_names.index(ns.subject)]
+        desc = f"subject:{ns.subject}"
+    elif ns.direction:
+        obj = torch.load(ns.direction, map_location="cpu", weights_only=False)
+        query = getattr(obj, "direction", obj)
+        desc = f"direction:{ns.direction}"
+    else:
+        raise ValueError("Fournir --subject <nom> OU --direction <.pt> pour identifier.")
+    matches = atlas.identify(query, k=ns.k, layer=ns.layer)
+    return emit_result(ns, "atlas-identify", {"query": desc, "matches": matches})
+
+
+def cmd_atlas_monitor(ns) -> int:
+    """Suit la dérive de l'atlas à travers une série de checkpoints (suivi de fine-tuning)."""
+    import gc
+    import json as _json
+    from pathlib import Path
+
+    import torch
+
+    from .atlas import build_atlas, drift_series, load_labeled
+    from .data import PromptFormatter
+    from .models import load_model
+
+    checkpoints = parse_preserve(ns.checkpoints)
+    if len(checkpoints) < 2:
+        raise ValueError("atlas-monitor exige au moins 2 checkpoints (--checkpoints c0,c1,...).")
+    ref = ns.ref or checkpoints[0]
+    if ref not in checkpoints:
+        raise ValueError(f"--ref '{ref}' absent de --checkpoints {checkpoints}.")
+    groups = load_labeled(ns.dataset, label_key=ns.label_key)
+    if ns.limit:
+        log.info("Atlas-monitor : sous-échantillon de %d textes par sujet.", ns.limit)
+
+    atlases, shape = [], None
+    for ckpt in checkpoints:
+        log.info("Checkpoint %s : construction de l'atlas", ckpt)
+        model, tok = load_model(ckpt, dtype=ns.dtype, device_map=ns.device or "auto")
+        formatter = PromptFormatter(tok)
+        atlas = build_atlas(model, formatter, groups, ns.k, batch_size=ns.batch_size,
+                            device=ns.device, center=ns.center, limit=ns.limit,
+                            meta={"checkpoint": ckpt})
+        sig = (atlas.n_layers, int(atlas.subject_dirs.shape[-1]))
+        if shape is None:
+            shape = sig
+        elif sig != shape:
+            raise ValueError(f"Lignée incohérente : {ckpt} a {sig}, attendu {shape} "
+                             "(le suivi exige une même architecture/base).")
+        atlases.append((ckpt, atlas))
+        del model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    series = drift_series(atlases, ref_index=checkpoints.index(ref))
+    report_path = None
+    if ns.report:
+        Path(ns.report).write_text(
+            _json.dumps({"ref": ref, "series": series}, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8")
+        report_path = ns.report
+        log.info("Rapport de suivi écrit dans %s", ns.report)
+    return emit_result(ns, "atlas-monitor", {
+        "checkpoints": checkpoints, "ref": ref, "series": series, "report_path": report_path,
     })
 
 

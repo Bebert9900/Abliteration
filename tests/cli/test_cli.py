@@ -1,7 +1,7 @@
 """Tests du parseur CLI : sous-commandes, --variant preserving, --preserve, diagnose, heal."""
 import pytest
 
-from abliteration.cli import build_parser, parse_preserve
+from meridian.cli import build_parser, parse_preserve
 
 
 def test_parse_preserve_splits_comma_list():
@@ -65,7 +65,7 @@ def _run_main(argv):
     import contextlib
     import io
 
-    from abliteration.cli import main
+    from meridian.cli import main
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = main(argv)
@@ -140,7 +140,7 @@ def test_analyze_circuit_accepts_concept_and_keeps_refusal_default():
 def test_build_concept_pairs_returns_aligned_tuples():
     import torch
 
-    from abliteration.cli import _build_concept_pairs
+    from meridian.cli import _build_concept_pairs
 
     class FakeFormatter:
         def tokenize(self, texts):
@@ -176,7 +176,7 @@ def test_concept_steer_parser_and_schema():
 def test_concept_direction_requires_a_concept_source():
     from types import SimpleNamespace
 
-    from abliteration.cli import _resolve_concept
+    from meridian.cli import _resolve_concept
     ns = SimpleNamespace(concept=None, pos=None, neg=None, name=None, data_dir="data")
     with pytest.raises(ValueError):
         _resolve_concept(ns)
@@ -186,7 +186,7 @@ def test_dump_run_config_writes_hashes_and_params(tmp_path):
     import json
     from types import SimpleNamespace
 
-    from abliteration.cli import _dump_run_config
+    from meridian.cli import _dump_run_config
 
     data_dir = tmp_path / "data"
     data_dir.mkdir()

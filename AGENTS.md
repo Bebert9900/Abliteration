@@ -1,7 +1,7 @@
-# AGENTS.md — piloter `abliteration` depuis un agent IA
+# AGENTS.md — piloter Meridian depuis un agent IA
 
 Ce dépôt expose une CLI conçue pour être pilotée par un agent. Ce document est le guide
-d'amorçage ; **la source de vérité machine est `python -m abliteration.cli schema --json`**
+d'amorçage ; **la source de vérité machine est `python -m meridian.cli schema --json`**
 (liste exacte des commandes, arguments, types, défauts et formes de sortie, toujours à jour).
 
 ## Contrat de sortie (`--json`)
@@ -29,7 +29,7 @@ Sans `--json`, la sortie est destinée à un humain (texte/JSON simple) — ne p
 ## Découverte
 
 ```bash
-python -m abliteration.cli schema --json
+python -m meridian.cli schema --json
 ```
 Renvoie `{"version", "commands"}` où chaque commande décrit ses `arguments`
 (`name`, `flags`, `type`, `default`, `required`, `choices`, `help`, `positional`) et la forme
@@ -52,16 +52,19 @@ de ses données de sortie (`output`).
 | `concept-steer` | Pilotage causal par ajout de direction (génère avec/sans) | `comparisons`, `alpha`, `layer` |
 | `analyze-circuit` | Localisation causale (refus par défaut, `--concept` pour tout concept) | `summary`, `report` |
 | `heal` | Récupération agentique LoRA SFT | `out_dir` |
+| `atlas-build` | Atlas de directions (sujets supervisés + latents SVD) depuis un dataset étiqueté | `atlas_path`, `n_subjects`, `subject_to_latent` |
+| `atlas-identify` | Sujets de l'atlas les plus proches d'une direction (hors-ligne) | `matches` |
+| `atlas-monitor` | Dérive de l'atlas à travers des checkpoints (suivi de fine-tuning) | `series`, `ref` |
 | `schema` | Auto-description machine de la CLI | `version`, `commands` |
 
 ## Exemple agent (bout en bout)
 
 ```bash
 # 1) découvrir les capacités
-python -m abliteration.cli schema --json
+python -m meridian.cli schema --json
 
 # 2) abliterer et récupérer les métriques de façon structurée
-python -m abliteration.cli abliterate Qwen/Qwen2.5-3B-Instruct \
+python -m meridian.cli abliterate Qwen/Qwen2.5-3B-Instruct \
     --variant norm_preserving_biprojected --out ./artifacts/out --json
 
 # 3) parser stdout : env["status"] == "ok" puis lire env["data"]["refusal_rate"], etc.

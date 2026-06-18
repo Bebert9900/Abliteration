@@ -82,7 +82,7 @@ def concept_direction(concept: Concept, model, formatter, batch_size: int = 8,
     Réutilise `directions.collect_means` (générique sur des textes, accumulation float32). Lève
     ValueError si l'un des deux ensembles est vide (contraste impossible).
     """
-    from abliteration.directions import collect_means
+    from meridian.directions import collect_means
 
     if not concept.positive or not concept.negative:
         raise ValueError(f"Concept '{concept.name}' : positive et negative doivent être non vides.")

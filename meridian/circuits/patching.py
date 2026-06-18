@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 import torch
 
-from abliteration.data.formatting import last_token_index
+from meridian.data.formatting import last_token_index
 
 from .backend import CircuitBackend, Component, ComponentCache, Patch
 

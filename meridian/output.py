@@ -39,6 +39,15 @@ COMMAND_OUTPUT: dict[str, dict] = {
                              "layer": "int|null", "warnings": "list[str]"},
     "concept-steer": {"name": "str", "alpha": "float", "layer": "int", "preserve": "list[str]",
                       "comparisons": "list[{prompt, baseline, steered}]", "n": "int"},
+    "atlas-build": {"atlas_path": "str", "n_subjects": "int", "k": "int — directions latentes",
+                    "explained_variance_top": "list[float] — variance du 1er latent par couche",
+                    "subject_to_latent": "dict — latent le plus proche de chaque sujet",
+                    "separability_warnings": "list[str] — sujets géométriquement intriqués"},
+    "atlas-identify": {"query": "str — source de la direction interrogée",
+                       "matches": "list[{name, cosine}] — sujets les plus proches (|cos|)"},
+    "atlas-monitor": {"checkpoints": "list[str]", "ref": "str — checkpoint de référence",
+                      "series": "list[{checkpoint, subjects, latent_subspace_drift, gap_norm_delta}]",
+                      "report_path": "str|null"},
     "schema": {"version": "str", "commands": "dict — args + forme de sortie par commande"},
 }
 

@@ -1,7 +1,7 @@
 """Tests des directions multi-direction (SVD du contraste harmful↔harmless)."""
 import torch
 
-from abliteration.directions import top_k_directions
+from meridian.directions import top_k_directions
 
 
 def test_k1_is_collinear_with_mean_difference():

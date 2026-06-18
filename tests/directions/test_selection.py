@@ -1,5 +1,5 @@
 """Test de la sélection de couche via une fonction de score injectée (hooks réversibles)."""
-from abliteration.directions import select_layer
+from meridian.directions import select_layer
 
 
 def test_select_layer_picks_lowest_refusal_score():

@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 
-from abliteration.models import ArchAdapter, WriteKind
+from meridian.models import ArchAdapter, WriteKind
 
 
 class Conv1D(nn.Module):

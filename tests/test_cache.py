@@ -1,7 +1,7 @@
 """Tests du cache disque : déterminisme de la clé, hit/miss, écriture atomique, opt-out."""
 import torch
 
-from abliteration.cache import cached_tensor, make_key
+from meridian.cache import cached_tensor, make_key
 
 
 def test_make_key_is_deterministic_and_sensitive():

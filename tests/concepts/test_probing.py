@@ -2,7 +2,7 @@
 import pytest
 import torch
 
-from abliteration.concepts import probe_per_layer, train_linear_probe
+from meridian.concepts import probe_per_layer, train_linear_probe
 
 
 def test_probe_separates_well_separated_gaussians():

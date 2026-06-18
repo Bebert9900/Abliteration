@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import torch
 
-from abliteration.data import PromptClass
+from meridian.data import PromptClass
 
 
 def _normalize(v: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:

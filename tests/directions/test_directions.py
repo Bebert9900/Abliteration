@@ -1,8 +1,8 @@
 """Tests des directions unitaires (4 classes) et de la séparabilité."""
 import torch
 
-from abliteration.data import PromptClass
-from abliteration.directions import Directions, compute_directions, separability
+from meridian.data import PromptClass
+from meridian.directions import Directions, compute_directions, separability
 
 
 def _means(harmful, harmless, negation, agentic):

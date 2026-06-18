@@ -1,4 +1,4 @@
-"""Compare base vs abliteré sur MMLU + GSM8K via le câblage lm-eval du repo (abliteration.eval.run_benchmark).
+"""Compare base vs abliteré sur MMLU + GSM8K via le câblage lm-eval du repo (meridian.eval.run_benchmark).
 
 Usage : python run_benchmarks.py <base_model> <ablated_dir> [--limit N] [--tasks mmlu,gsm8k]
 Écrit benchmarks_compare.json. `--limit` restreint le nombre d'exemples (run rapide).
@@ -10,7 +10,7 @@ from pathlib import Path as _Path
 
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
 
-from abliteration.eval import run_benchmark
+from meridian.eval import run_benchmark
 
 
 def main():

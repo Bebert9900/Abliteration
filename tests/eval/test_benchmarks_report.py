@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from abliteration.eval import (
+from meridian.eval import (
     BenchmarkNotInstalled,
     EvalReport,
     available_benchmarks,

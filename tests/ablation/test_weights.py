@@ -2,8 +2,8 @@
 import torch
 import torch.nn as nn
 
-from abliteration.ablation import orthogonalize_weights
-from abliteration.models import ArchAdapter
+from meridian.ablation import orthogonalize_weights
+from meridian.models import ArchAdapter
 
 
 class Conv1D(nn.Module):

@@ -3,7 +3,7 @@ import io
 import json
 from types import SimpleNamespace
 
-from abliteration.output import (
+from meridian.output import (
     SCHEMA_VERSION,
     emit_error,
     emit_result,
@@ -55,7 +55,7 @@ def test_emit_error_human_keeps_stdout_clean():
 
 
 def test_parser_schema_lists_all_commands_with_json_and_output():
-    from abliteration.cli import build_parser
+    from meridian.cli import build_parser
     schema = parser_schema(build_parser())
     cmds = schema["commands"]
     for expected in ["extract", "select", "apply", "abliterate", "optimize", "eval",
@@ -68,7 +68,7 @@ def test_parser_schema_lists_all_commands_with_json_and_output():
 
 
 def test_parser_schema_captures_arg_metadata():
-    from abliteration.cli import build_parser
+    from meridian.cli import build_parser
     cmds = parser_schema(build_parser())["commands"]
     variant = next(a for a in cmds["abliterate"]["arguments"] if a["name"] == "variant")
     assert variant["default"] == "norm_preserving_biprojected"

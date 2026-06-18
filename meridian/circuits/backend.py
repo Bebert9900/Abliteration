@@ -32,7 +32,7 @@ from enum import Enum
 
 import torch
 
-from abliteration.models import ArchAdapter, WriteKind
+from meridian.models import ArchAdapter, WriteKind
 
 
 class ComponentKind(str, Enum):

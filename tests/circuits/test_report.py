@@ -8,10 +8,10 @@ from toymodel import (
     harmless_ids,
 )
 
-from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
-from abliteration.circuits.localize import localize
-from abliteration.circuits.patching import RefusalMetric
-from abliteration.circuits.report import CircuitReport
+from meridian.circuits.backend import Component, ComponentKind, TorchHookBackend
+from meridian.circuits.localize import localize
+from meridian.circuits.patching import RefusalMetric
+from meridian.circuits.report import CircuitReport
 
 CAUSAL = Component(ComponentKind.ATTN_HEAD, 0, 0)
 

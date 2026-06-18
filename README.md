@@ -1,34 +1,114 @@
-# Abliteration préservante
+# Meridian
 
-Outil d'abliteration (directional ablation) pour LLM. Il retire la
-direction de refus d'un modèle sans réentraînement, en cherchant à préserver deux capacités
-qu'une abliteration naïve dégrade : la négation logique (« non, ce code est faux ») et les
-capacités agentiques (appels d'outils, sorties structurées, raisonnement multi-étapes).
+**Cartographier et surveiller les directions qu'un LLM encode.** Meridian extrait, suit et
+modifie les directions de concepts dans les activations d'un modèle. Son usage premier : **suivre
+l'évolution des représentations internes au fil d'un fine-tuning** — pour détecter tôt qu'une
+capacité dérive, s'effondre ou s'intrique avec une autre. L'**ablation dirigée** (« abliteration »,
+directional ablation) en est l'une des capacités, pas le cœur.
 
-La méthode reprend la *directional ablation* d'Arditi et al. (2024) et sa variante *projected*
-(orthogonalisation de la direction de refus contre des directions à préserver). Chaque étape du
-pipeline est isolée, lisible et couverte par des tests.
+Tout repose sur le même objet géométrique : une **direction** = un contraste de moyennes
+d'activations entre deux ensembles de prompts, `d̂ = normalize(μ_pos − μ_neg)`, calculée couche
+par couche. À partir de là, Meridian sait : construire un **atlas** de directions (par sujet et
+par variance), **identifier** la direction d'un sujet arbitraire, **suivre** la dérive de ces
+directions dans le temps, et **abliter** une direction de refus en préservant les capacités.
 
-## Principe
+## Surveiller un fine-tuning (cas d'usage premier)
 
-On calcule la direction de refus à partir d'un contraste de moyennes d'activations entre
-prompts nuisibles et prompts neutres :
+Un fine-tuning modifie les poids ; les directions internes bougent avec eux, souvent sans qu'on
+le voie dans la loss : une direction de sujet **tourne** (la représentation se réorganise), sa
+**force** s'effondre (le modèle « oublie » un sujet), deux concepts s'**intriquent**, ou le
+**sous-espace latent** dérive. Meridian rend ces phénomènes mesurables, checkpoint par checkpoint
+ou en direct pendant l'entraînement.
 
+**En ligne** — brancher un callback sur un `transformers.Trainer` ; il construit un atlas à chaque
+sauvegarde et écrit la série de dérive (référence = premier instantané) :
+
+```python
+from meridian.atlas import AtlasDriftCallback, load_labeled
+from meridian.data import PromptFormatter
+
+cb = AtlasDriftCallback(load_labeled("data/labeled_demo.jsonl"),
+                        PromptFormatter(tokenizer), k=32, out_path="results/atlas_drift.json")
+trainer.add_callback(cb)
 ```
-r = normalize(μ_harmful − μ_harmless)
+
+**Hors-ligne** — sur des checkpoints déjà sauvegardés (trainer-agnostique) :
+
+```bash
+python -m meridian.cli atlas-monitor \
+    --checkpoints ckpt-100,ckpt-200,ckpt-final \
+    --dataset data/labeled_demo.jsonl --report results/atlas_monitor.json
 ```
 
-Plutôt que d'effacer `r` directement, on l'orthogonalise d'abord contre les directions des
-capacités à préserver (négation `n`, agentique `a`), de sorte que l'ablation ne touche que la
-composante du refus indépendante de ces capacités :
+Métriques de dérive (résumé agrégé sur les couches milieu, où les directions sont stables) :
+
+| Mesure | Métrique | Plage |
+|---|---|---|
+| Dérive d'une direction de sujet | distance cosinus **signée** `1 − cos` (direction orientée : un flip de signe compte) | [0, 2] |
+| Dérive du sous-espace latent | angles principaux / distance de Grassmann (signe SVD non orienté) | [0, 1] |
+| Force d'un sujet | variation de `‖μ_s − μ_reste‖` (renforcement / effondrement) | — |
+| Intrication | évolution de la matrice cosinus inter-sujets | — |
+
+> Le suivi n'est valide qu'au sein d'une **même lignée** (même architecture/base → base de hidden
+> states partagée). Comparer des modèles non apparentés n'a pas de sens géométrique.
+
+## Atlas de directions
+
+À partir d'un **dataset étiqueté** (textes taggés par sujet — un JSONL `{"text": ..., "subject": ...}`
+ou un dossier d'un `.txt` par sujet), `atlas-build` calcule en une passe :
+
+- une **direction supervisée par sujet** : `d̂_s = normalize(μ_s − μ_reste)` (one-vs-rest) ;
+- un jeu de **directions latentes non supervisées** : SVD/PCA par couche, avec variance expliquée ;
+- le **pont** entre les deux (quelle latente ≈ quel sujet, et inversement) et la séparabilité
+  inter-sujets.
+
+L'atlas est sérialisé en `.safetensors` (directions seulement, jamais de poids de modèle).
+
+```bash
+python -m meridian.cli atlas-build   <model> --dataset data/labeled_demo.jsonl --k 32 \
+    --out results/atlas.safetensors
+python -m meridian.cli atlas-identify --atlas results/atlas.safetensors --subject biologie
+```
+
+`atlas-identify` répond à « quelle est la direction de ce sujet, et qu'est-ce qui lui ressemble ? » :
+il renvoie les sujets les plus proches d'une direction (par `|cos|` — recherche d'axe), à partir
+d'un sujet de l'atlas (`--subject`) ou d'une direction `.pt` quelconque (`--direction`). Entièrement
+hors-ligne (aucun chargement de modèle).
+
+## Concepts
+
+L'abstraction `concepts/` généralise la notion de direction à tout concept défini par un contraste
+de prompts. Trois concepts sont prédéfinis (`refusal`, `negation`, `agentic`) ; on peut en charger
+un depuis deux fichiers. Lecture seule.
+
+```bash
+python -m meridian.cli concept-direction    <model> --concept refusal
+python -m meridian.cli concept-separability  <model> --concepts refusal,negation,agentic
+python -m meridian.cli concept-probe         <model> --concept refusal
+python -m meridian.cli concept-steer         <model> --concept refusal --alpha 8
+```
+
+## Ablation dirigée (abliteration)
+
+L'une des capacités de Meridian : retirer la **direction de refus** d'un modèle sans
+réentraînement (directional ablation, Arditi et al. 2024), en cherchant à préserver deux capacités
+qu'une ablation naïve dégrade — la **négation logique** (« non, ce code est faux ») et l'**agentique**
+(appels d'outils, sorties structurées). C'est l'enjeu de l'« abliteration préservante ».
+
+### Principe
+
+On calcule la direction de refus par contraste de moyennes d'activations (prompts nuisibles vs
+neutres), `r = normalize(μ_harmful − μ_harmless)`. Plutôt que d'effacer `r` directement, on
+l'orthogonalise d'abord contre les directions à préserver (négation `n`, agentique `a`), de sorte
+que l'ablation ne touche que la composante du refus indépendante de ces capacités :
 
 ```
 r_safe = project_out(r, [n, a, ...])
 W'     = W − r_safe (r_safeᵀ W)
 ```
 
-L'orthogonalisation est appliquée à toutes les matrices qui écrivent dans le residual stream
-(`o_proj`, `down_proj` de chaque couche, embeddings ; un `down_proj` par expert pour les MoE).
+L'orthogonalisation s'applique à toutes les matrices écrivant dans le residual stream (`o_proj`,
+`down_proj` de chaque couche, embeddings ; un `down_proj` par expert pour les MoE).
 
 ### Les quatre classes de prompts
 
@@ -39,33 +119,86 @@ L'orthogonalisation est appliquée à toutes les matrices qui écrivent dans le 
 | `legitimate_negation` | Négation logique légitime, à préserver |
 | `agentic` | Appels d'outils et sorties structurées, à préserver |
 
-### Variantes d'ablation (`--variant`)
+### Variantes (`--variant`)
 
 | Variante | Description |
 |---|---|
 | `conventional` | `W' = W − r(rᵀW)` ; efface la direction brute (baseline) |
 | `projected` | Orthogonalise `r` contre `harmless` avant ablation |
-| `preserving` | Orthogonalise `r` contre un sous-ensemble choisi de directions (défaut de production) |
-| `norm_preserving_biprojected` | Idem `preserving`, avec préservation de la norme des poids |
+| `preserving` | Orthogonalise `r` contre un sous-ensemble choisi de directions |
+| `norm_preserving_biprojected` | Idem `preserving`, avec préservation de la norme des poids (défaut de prod) |
 
-La variante retenue par défaut est `preserving`, avec préservation de la négation et de
-l'agentique.
+### Pipeline
+
+```bash
+# Pipeline complet : extract → select → apply → eval
+python -m meridian.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
+    --variant preserving --preserve negation,agentic --data-dir data --out ./out
+
+# Étapes séparées
+python -m meridian.cli extract <model> --data-dir data --out directions.pt
+python -m meridian.cli select  <model> --directions directions.pt
+python -m meridian.cli apply   <model> --directions directions.pt \
+    --variant preserving --preserve negation,agentic --layer 14 --out ./out
+
+# Diagnostic (lecture seule) de la séparabilité des directions
+python -m meridian.cli diagnose <model> --directions directions.pt --layers 8-20
+```
+
+La commande `apply`/`abliterate` sauvegarde le modèle en safetensors et une model card (modèle de
+base, méthode, directions préservées, métriques).
+
+### Optimisation
+
+```bash
+python -m meridian.cli optimize <model> --trials 50 \
+    --lambda-kl 1.0 --lambda-neg 2.0 --lambda-syco 0.5 --lambda-agent 3.0
+```
+
+L'objectif Optuna co-minimise le refus et les dégradations de préservation :
+
+```
+objectif = refusal_rate + λ_kl·KL(harmless) + λ_neg·(1 − negation_retention)
+         + λ_syco·follow_rate + λ_agent·(1 − agentic_score)
+```
+
+Le terme `λ_agent` évite qu'un optimum sur (refus, KL) masque un effondrement des appels d'outils.
+La boucle persiste ses essais en JSONL et reprend après interruption.
+
+### Évaluation (bi-axe) et récupération
+
+```bash
+python -m meridian.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
+python -m meridian.cli heal ./out --traces traces.jsonl --n-traces 200   # extra `heal` (peft)
+```
+
+Le rapport `eval` couvre **deux axes** : refus (`refusal_rate` sur le holdout + filtre de
+dégénérescence) et préservation (`kl`, `negation_retention`, `agentic_score`), avec garde-fous
+(`degeneracy_rate`, `empty_rate`, `follow_rate`). Optimiser le refus seul produit un modèle
+dé-censuré mais lobotomisé : les deux axes sont non négociables.
+
+Le juge de refus par défaut est heuristique (mots-clés, déterministe, auditable). Il manque les
+refus déguisés ; un juge LLM hors-ligne (`meridian/eval/llm_judge.py`) permet de reclasser après
+coup des sorties déjà générées (`REFUSAL` / `NON_REFUSAL` / `EVASIVE`), après validation contre des
+labels humains. `heal` est une récupération optionnelle : si l'agentique s'est effondrée, un court
+LoRA SFT sur ~100–300 traces d'appels d'outils la restaure sans réintroduire le refus.
 
 ## Architecture
 
-Le pipeline ne dépend d'aucun nom de module codé en dur. Il passe par `ArchAdapter`, qui
-localise les matrices écrivant dans le residual stream par introspection (`named_modules()`,
-matching par suffixe). Sont gérées les architectures denses, les MoE (un `down_proj` par expert
-plus les couches partagées) et les couches Conv1D de type GPT-2 (axes transposés).
+Le code ne dépend d'aucun nom de module codé en dur : `ArchAdapter` localise les matrices écrivant
+dans le residual stream par introspection (`named_modules()`, matching par suffixe). Sont gérées
+les architectures denses, les MoE (un `down_proj` par expert + couches partagées) et le Conv1D de
+type GPT-2 (axes transposés).
 
 ```
-abliteration/         Package Python
-├── cli.py            Point d'entrée : python -m abliteration.cli <commande>
+meridian/             Package Python
+├── cli.py            Point d'entrée : python -m meridian.cli <commande>
+├── atlas/            Atlas de directions : sujets (supervisé), latents (SVD), pont, dérive, callback
+├── concepts/         Abstraction « concept » générique (direction, séparabilité, sonde)
 ├── data/             Classes contrastives, chat template, holdout déterministe
 ├── models/           Chargement bf16 et ArchAdapter
 ├── directions/       Collecte d'activations, calcul des directions, sélection de couche
 ├── ablation/         project_out, variantes, orthogonalisation des poids, hooks réversibles
-├── concepts/         Abstraction « concept » générique (direction, séparabilité, sonde)
 ├── eval/             Refus, KL, négation, agentique, benchmarks, juge LLM hors-ligne
 ├── circuits/         Analyse circuitielle (DLA + patching causal), lecture seule
 ├── optimize/         Objectif composite et boucle Optuna
@@ -74,20 +207,8 @@ abliteration/         Package Python
 ├── output.py         Contrat de sortie --json
 └── heal.py           Récupération agentique par LoRA SFT
 
-scripts/              Scripts d'expérimentation et de reproduction
-tests/                Suite pytest (miroir du package)
-data/                 Les quatre fichiers de prompts (JSONL)
-results/              Rapports de mesure (scores agrégés)
-```
-
-Flux du pipeline :
-
-```
-modèle + 4 classes (chat template appliqué)
-  → extract : moyennes d'activations par couche, dernier token → directions
-  → select  : couche d'ablation retenue par séparabilité
-  → apply   : orthogonalisation de toutes les écritures résiduelles (bf16)
-  → eval    : rapport refus (holdout) + préservation (KL, négation, agentique)
+scripts/   Expérimentation et reproduction   tests/   Suite pytest (miroir du package)
+data/      Prompts (JSONL)                    results/ Rapports de mesure (scores agrégés)
 ```
 
 ## Installation
@@ -104,176 +225,64 @@ pip install -e ".[quant]"      # bitsandbytes (mesure uniquement)
 pip install -e ".[dev]"        # pytest, ruff
 ```
 
-La quantification 4-bit n'est utilisée que pour mesurer de gros modèles. Les poids ablitérés
-sont toujours produits en bf16.
+La quantification 4-bit n'est utilisée que pour mesurer de gros modèles ; les poids ablitérés sont
+toujours produits en bf16.
 
 ## Format des données
 
-Un fichier JSONL par classe. Chaque ligne est un objet avec une clé `text` (ou `prompt`) ;
-toute autre clé est conservée dans `meta` (utile pour `agentic`, qui peut porter le schéma
-d'outil attendu). Le dossier passé via `--data-dir` doit contenir un fichier par classe :
+Un fichier JSONL par classe (extension `.txt`, contenu JSONL). Chaque ligne porte une clé `text`
+(ou `prompt`) ; toute autre clé est conservée dans `meta` (utile pour `agentic`). Pour l'atlas, un
+dataset étiqueté est soit un JSONL unique avec une clé de label (`--label-key`, défaut `subject`),
+soit un dossier d'un `.txt` par sujet.
 
 ```
 data/
-├── harmful.txt
-├── harmless.txt
-├── legitimate_negation.txt
-└── agentic.txt
+├── harmful.txt   harmless.txt   legitimate_negation.txt   agentic.txt   # 4 classes (ablation)
+└── labeled_demo.jsonl                                                   # dataset étiqueté (atlas)
 ```
 
-L'extension est `.txt` mais le contenu est du JSONL. Exemple pour `agentic` :
-
-```json
-{"text": "Appelle l'outil météo pour Paris", "tool": {"name": "get_weather", "parameters": {"required": ["city"]}}}
-```
-
-Chaque classe est découpée en train et holdout de façon déterministe : le train sert à calculer
-les directions, le holdout à mesurer le refus sur des prompts non vus.
-
-## Utilisation
-
-Toutes les commandes prennent le modèle en argument positionnel (identifiant HuggingFace ou
-chemin local). Options communes : `--data-dir`, `--dtype` (défaut `bfloat16`), `--device`,
-`--batch-size`, `--holdout`, `--seed`. L'option `--no-cache` désactive le cache disque.
-
-Pipeline complet :
-
-```bash
-python -m abliteration.cli abliterate meta-llama/Llama-3.1-8B-Instruct \
-    --variant preserving --preserve negation,agentic --data-dir data --out ./out
-```
-
-La commande enchaîne `extract` et `apply`, puis sauvegarde le modèle en safetensors et une
-model card (modèle de base, méthode, directions préservées, métriques).
-
-Étapes séparées :
-
-```bash
-python -m abliteration.cli extract <model> --data-dir data --out directions.pt
-python -m abliteration.cli select  <model> --directions directions.pt
-python -m abliteration.cli apply   <model> --directions directions.pt \
-    --variant preserving --preserve negation,agentic --layer 14 --out ./out
-```
-
-Diagnostic (lecture seule) de la séparabilité des directions par couche :
-
-```bash
-python -m abliteration.cli diagnose <model> --directions directions.pt --layers 8-20
-```
-
-### Optimisation
-
-```bash
-python -m abliteration.cli optimize <model> --trials 50 \
-    --lambda-kl 1.0 --lambda-neg 2.0 --lambda-syco 0.5 --lambda-agent 3.0
-```
-
-L'objectif Optuna co-minimise le refus et les dégradations de préservation :
-
-```
-objectif = refusal_rate
-         + λ_kl   · KL(harmless)
-         + λ_neg  · (1 − negation_retention)
-         + λ_syco · follow_rate
-         + λ_agent· (1 − agentic_score)
-```
-
-Le terme `λ_agent` évite qu'un optimum sur (refus, KL) masque un effondrement des appels
-d'outils. La boucle persiste ses essais en JSONL et reprend après interruption.
-
-### Évaluation
-
-```bash
-python -m abliteration.cli eval ./out --benchmarks mmlu,gsm8k --out report.json
-```
-
-Le rapport couvre deux axes :
-
-- Refus : `refusal_rate` sur le holdout, avec filtre de dégénérescence.
-- Préservation : `kl`, `negation_retention`, `agentic_score`.
-- Garde-fous : `degeneracy_rate`, `empty_rate`, `follow_rate`.
-
-Le juge de refus par défaut est heuristique (mots-clés, déterministe, auditable). Il manque les
-refus déguisés (un préambule « Sure, here's how... » suivi de rien, une déflexion moralisatrice).
-Un juge LLM hors-ligne (`abliteration/eval/llm_judge.py`) permet de reclasser après coup des
-sorties déjà générées en `REFUSAL`, `NON_REFUSAL` ou `EVASIVE`. Ce juge n'intervient pas dans le
-pipeline de production et n'est fiable qu'après validation contre des labels humains (voir plus
-bas).
-
-### Récupération agentique
-
-```bash
-python -m abliteration.cli heal ./out --traces traces.jsonl --n-traces 200
-```
-
-À utiliser si l'évaluation révèle un effondrement agentique résiduel : un court LoRA SFT sur une
-centaine à quelques centaines de traces d'appels d'outils restaure l'agentique sans réintroduire
-le refus. Nécessite l'extra `heal` (peft).
-
-### Analyse de concepts
-
-L'abstraction `concepts/` généralise la direction de refus à tout concept défini par un
-contraste de prompts. Trois concepts sont prédéfinis (`refusal`, `negation`, `agentic`) ; on peut
-aussi en charger un depuis deux fichiers. Toutes ces commandes sont en lecture seule.
-
-```bash
-python -m abliteration.cli concept-direction    <model> --concept refusal
-python -m abliteration.cli concept-separability  <model> --concepts refusal,negation,agentic
-python -m abliteration.cli concept-probe         <model> --concept refusal
-python -m abliteration.cli concept-steer         <model> --concept refusal --alpha 8
-```
+Chaque ensemble est découpé en train/holdout de façon déterministe (graine fixe) : le train
+calcule les directions, le holdout mesure sur des prompts non vus.
 
 ## Pilotage par des agents IA
 
-La CLI est conçue pour être pilotée par un programme ou un agent IA, pas seulement par un humain.
-Chaque sous-commande accepte le flag `--json`, qui sépare proprement résultat et logs et garantit
-une sortie parsable.
-
-Avec `--json`, stdout ne contient qu'une enveloppe versionnée :
+La CLI est conçue pour être pilotée par un programme ou un agent, pas seulement par un humain.
+Chaque sous-commande accepte `--json` : stdout ne contient qu'une enveloppe versionnée, les logs
+vont sur stderr.
 
 ```json
-{"schema_version": "1", "status": "ok", "command": "eval", "data": { ... }, "error": null}
+{"schema_version": "1", "status": "ok", "command": "atlas-monitor", "data": { ... }, "error": null}
 ```
 
-En cas d'échec, `status` vaut `"error"`, `data` est `null` et `error` porte `{type, message}`.
-Les logs de progression vont sur stderr et ne doivent pas être parsés. Les codes de sortie
-suivent la convention `0` succès, `1` erreur d'exécution, `2` erreur d'usage.
-
-Un agent n'a pas besoin de connaître la CLI à l'avance : `schema --json` la décrit entièrement
-(commandes, arguments, types, valeurs par défaut, choix, forme des données de sortie). Comme les
-modules lourds (torch, transformers) sont chargés paresseusement, cette introspection et la
-validation des arguments fonctionnent sans GPU ni modèle.
+En cas d'échec, `status` vaut `"error"`, `data` est `null`, `error` porte `{type, message}`. Codes
+de sortie : `0` succès, `1` erreur d'exécution, `2` erreur d'usage. `schema --json` décrit toute la
+CLI (commandes, arguments, types, défauts, formes de sortie) sans charger torch ni modèle.
 
 ```bash
-# 1. Découvrir les commandes et leurs arguments
-python -m abliteration.cli schema --json
-
-# 2. Lancer une commande et récupérer un résultat structuré
-python -m abliteration.cli abliterate Qwen/Qwen2.5-3B-Instruct \
-    --variant preserving --preserve negation,agentic --out ./out --json
-
-# 3. Vérifier env["status"] == "ok", puis lire env["data"]["refusal_rate"], etc.
+python -m meridian.cli schema --json
+python -m meridian.cli atlas-build Qwen/Qwen2.5-3B-Instruct --dataset data/labeled_demo.jsonl \
+    --out results/atlas.safetensors --json
 ```
 
-Le guide d'intégration détaillé est dans `AGENTS.md` ; la source de vérité reste la sortie de
-`schema --json`, toujours synchronisée avec le code.
+Guide d'intégration détaillé dans `AGENTS.md` ; la source de vérité reste `schema --json`.
 
 ## État d'implémentation
 
 | Composant | État |
 |---|---|
+| `atlas` (sujets, latents SVD, pont, dérive, `AtlasDriftCallback`) | Implémenté et testé |
+| `concepts`, `cache`, contrat `--json` | Implémenté et testé |
 | `data`, `models`, `directions`, `ablation` | Implémenté et testé |
 | `eval` (refus, KL, négation, agentique, juge hors-ligne) | Implémenté et testé |
-| `concepts`, `cache`, contrat `--json` | Implémenté et testé |
 | `optimize` (objectif composite, boucle Optuna) | Implémenté et testé |
 | `heal` (LoRA SFT) | Implémenté ; nécessite l'extra `heal` |
 | `io` (safetensors, model card) | Implémenté et testé |
 | `circuits` (Phase 1, lecture seule) | Implémenté et testé |
-| CLI (14 sous-commandes) | Câblée aux modules réels |
+| CLI (17 sous-commandes) | Câblée aux modules réels |
 | `io.export_gguf` | Non implémenté (nécessite llama.cpp) |
 | Analyse circuitielle Phase 2 (ablation ciblée) | Non implémenté |
 
-### Résultats mesurés
+### Résultats mesurés (ablation)
 
 Qwen2.5-3B-Instruct, variante `preserving`, couche 22, holdout de 30 prompts nuisibles :
 
@@ -288,111 +297,82 @@ Qwen2.5-3B-Instruct, variante `preserving`, couche 22, holdout de 30 prompts nui
 | KL de préservation | — | 0.78 |
 
 Le `refusal_rate` heuristique de 0.00 est optimiste : la lecture humaine des 30 réponses montre
-environ 90 % de compliances réelles et deux refus déguisés que les mots-clés ne détectent pas,
-soit un taux de refus effectif autour de 7 %.
+environ 90 % de compliances réelles et deux refus déguisés non détectés par les mots-clés, soit un
+taux de refus effectif autour de 7 %.
 
 ## Tests
 
 ```bash
-pytest                  # suite complète (~230 tests)
+pytest                  # suite complète (~265 tests)
 pytest -m "not model"   # exclut les tests qui chargent un modèle
-ruff check .            # lint
+ruff check .            # lint (gate CI)
 ```
 
-Le test d'intégration `tests/integration/test_constraints.py` utilise un modèle jouet dont les
-matrices d'écriture valent l'identité, ce qui rend la rétention d'une sonde calculable exactement
-(`rétention = 1 − (d·p)²`). Il vérifie, sur la chaîne réelle
-`compute_directions → ablation_direction → orthogonalize_weights → ArchAdapter`, que `preserving`
-conserve la négation et l'agentique là où `conventional` les dégrade, le refus restant réduit
-dans les deux cas.
+Les fonctions pures (directions, SVD, dérive, séparabilité, atlas) sont testées sur des tenseurs
+jouets, sans modèle. Le test d'intégration `tests/integration/test_constraints.py` utilise un
+modèle jouet à matrices d'écriture identité, qui rend la rétention d'une sonde calculable
+exactement (`rétention = 1 − (d·p)²`), et vérifie sur la chaîne réelle que `preserving` conserve la
+négation et l'agentique là où `conventional` les dégrade.
 
 ### Validation du juge
 
-Le `refusal_rate` ne vaut que ce que vaut le juge. Pour lever le doute sur le 0.00 heuristique,
-les sorties ont été rejugées hors-ligne, puis le juge a été comparé à des labels humains :
-
-- Le juge LLM 3B local n'a pas passé la validation. Avec une rubrique stricte, il classe en
-  refus des réponses qui complient (biais de nocivité). Avec une rubrique few-shot débiaisée, il
-  devient bon sur le modèle ablitéré mais aveugle aux refus francs du modèle de base. La référence
-  reste donc le label humain.
-- La lecture humaine confirme que l'ablation est solide : le 0.00 heuristique était optimiste,
-  pas trompeur.
-
-Deux règles en découlent : valider tout juge automatique sur un échantillon humain, et conserver
-les textes bruts des générations (pas seulement les scores) pour pouvoir rejuger. Ces textes
-peuvent contenir du contenu nuisible et restent donc hors du dépôt.
+Le `refusal_rate` ne vaut que ce que vaut le juge. Les sorties ont été rejugées hors-ligne puis le
+juge comparé à des labels humains : le juge LLM 3B local n'a pas passé la validation (biais de
+nocivité), la référence reste donc le label humain, qui confirme que l'ablation est solide. Deux
+règles : valider tout juge automatique sur un échantillon humain, et conserver les textes bruts des
+générations (pas seulement les scores) pour pouvoir rejuger. Ces textes peuvent contenir du contenu
+nuisible et restent hors du dépôt.
 
 ## Points d'attention
 
-Sources de bugs silencieux en abliteration :
-
 - Appliquer le chat template avant toute collecte d'activations, sinon la direction est bruitée.
-- Padding à gauche, ou indexation par `attention_mask`, pour capter le dernier token.
+- Padding à gauche (ou indexation par `attention_mask`) pour capter le dernier token.
 - Orthogonaliser toutes les écritures résiduelles (`o_proj`, `down_proj`, embeddings ; chaque
   expert pour les MoE) ; en oublier laisse du refus résiduel.
 - Produire les poids en bf16 ; la 4-bit est réservée à la mesure.
 - Passer par `ArchAdapter` plutôt que de coder des noms de modules en dur.
-- Utiliser les hooks réversibles (`abliteration/ablation/hooks.py`) pour explorer et sélectionner
-  une couche ; l'orthogonalisation permanente n'intervient qu'à la livraison.
-
-## Cadre d'usage
-
-L'abliteration est une technique d'interprétabilité publiée et à double usage. Ce dépôt reste un
-outil générique de modification de modèle :
-
-- Toute livraison de poids s'accompagne d'une model card (modèle de base, méthode, métriques).
-- L'évaluation sur les deux axes fait partie intégrante du pipeline.
-- Aucune fonctionnalité n'est orientée vers la production de contenu gravement dangereux.
+- Hooks réversibles (`meridian/ablation/hooks.py`) pour explorer/sélectionner une couche ;
+  orthogonalisation permanente seulement à la livraison.
 
 ## Analyse circuitielle (Phase 1)
 
-Au-delà de la direction de refus, `abliteration/circuits/` cherche quels composants (têtes
-d'attention, MLP) portent le refus et comment l'information circule. La Phase 1 est en lecture
-seule : aucune modification de poids. La règle suivie est que la DLA, corrélationnelle, ne conclut
-jamais seule ; toute localisation est confirmée par patching causal (nécessité et suffisance).
-
-| Module | Rôle |
-|---|---|
-| `backend.py` | Introspection par composant : `TorchHookBackend` (read/write) et `NNsightBackend` (read) |
-| `dla.py` | Direct Logit Attribution (corrélationnel) |
-| `patching.py` | Activation patching causal au dernier token (knockout et restauration) |
-| `attribution.py` | Attribution par gradient, vérifiée sur les top-k par patching exact |
-| `localize.py` | Agrégation DLA + patching, stabilité bootstrap (Jaccard), métriques de fidélité |
-| `report.py` | Rapport séparant corrélationnel et causalement validé |
+`meridian/circuits/` cherche quels composants (têtes d'attention, MLP) portent le refus et comment
+l'information circule. Phase 1 = lecture seule (aucune modification de poids). Règle d'or : la DLA,
+corrélationnelle, ne conclut jamais seule ; toute localisation est confirmée par patching causal
+(nécessité et suffisance).
 
 ```bash
-python -m abliteration.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
+python -m meridian.cli analyze-circuit Qwen/Qwen3-0.6B --device cuda \
     --pairs 16 --top-k 24 --threshold 0.5 --n-boot 300 --out rapport.json
 ```
 
-Le backend par défaut est `TorchHookBackend` ; NNsight est un backend de lecture alternatif,
-vérifié par un test de parité sur Qwen3-0.6B. La Phase 2 (ablation ciblée) n'est pas implémentée :
-sur Qwen3-0.6B, la localisation s'est révélée instable d'un run à l'autre (Jaccard bootstrap
-inférieur à 0.9), ce qui ne justifie pas d'y conditionner une ablation chirurgicale.
+Le backend par défaut est `TorchHookBackend` ; NNsight est un backend de lecture alternatif. La
+Phase 2 (ablation ciblée) n'est pas implémentée : sur Qwen3-0.6B la localisation s'est révélée
+instable d'un run à l'autre (Jaccard bootstrap < 0.9).
+
+## Cadre d'usage
+
+Meridian est un outil de recherche en interprétabilité, à des fins éducatives et défensives.
+L'ablation dirigée est une technique à double usage : retirer la direction de refus lève des
+garde-fous. Le dépôt reste un **outil générique de modification/observation de modèle** :
+
+- Toute livraison de poids s'accompagne d'une model card (modèle de base, méthode, métriques).
+- L'évaluation bi-axe fait partie intégrante du pipeline d'ablation.
+- Aucune fonctionnalité n'est orientée vers la production de contenu gravement dangereux.
 
 ## Référence
 
 Arditi et al. (2024), *Refusal in Language Models Is Mediated by a Single Direction*.
 
-Les hyperparamètres employés sont commentés à leur point d'usage. En cas de doute, se fier aux
-tests et aux métriques mesurées.
-
 ## Disclaimer
 
-Ce projet est un outil de recherche en interprétabilité, fourni à des fins éducatives et
-défensives. L'abliteration est une technique à double usage : retirer la direction de refus d'un
-modèle lève des garde-fous mis en place par ses auteurs. La responsabilité de l'usage des modèles
+Ce projet est fourni « en l'état », sans garantie. La responsabilité de l'usage des modèles
 produits incombe entièrement à l'utilisateur.
 
-- N'utilisez ce logiciel que sur des modèles dont la licence et les conditions d'utilisation
-  l'autorisent.
-- Toute diffusion d'un modèle modifié doit être accompagnée d'une model card indiquant le modèle
-  de base, la méthode appliquée et les métriques d'évaluation.
-- Le logiciel n'inclut aucune fonctionnalité destinée à produire du contenu gravement dangereux,
-  et n'a pas vocation à en faciliter la production.
-
-Le logiciel est fourni « en l'état », sans garantie d'aucune sorte. Les auteurs ne sauraient être
-tenus responsables des dommages résultant de son utilisation.
+- N'utilisez ce logiciel que sur des modèles dont la licence l'autorise.
+- Toute diffusion d'un modèle modifié doit s'accompagner d'une model card (modèle de base, méthode,
+  métriques).
+- Le logiciel n'inclut aucune fonctionnalité destinée à produire du contenu gravement dangereux.
 
 ## Auteurs
 

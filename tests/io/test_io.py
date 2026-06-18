@@ -1,5 +1,5 @@
 """Tests IO : sauvegarde du modèle et génération de model card transparente."""
-from abliteration.io import build_model_card, save_model
+from meridian.io import build_model_card, save_model
 
 
 class FakeModel:
@@ -40,7 +40,7 @@ def test_model_card_documents_base_method_and_metrics():
 
 
 def test_model_card_renders_report_as_bi_axis_table():
-    from abliteration.eval import EvalReport
+    from meridian.eval import EvalReport
     report = EvalReport(refusal_rate=0.05, kl=0.2, negation_retention=0.9, follow_rate=0.1,
                         empty_rate=0.0, agentic_score=0.85, degeneracy_rate=0.0)
     card = build_model_card("base/model", "norm_preserving_biprojected",

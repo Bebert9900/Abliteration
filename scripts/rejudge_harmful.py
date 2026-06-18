@@ -30,8 +30,8 @@ import torch
 
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
 
-from abliteration.data import FourClassData, PromptClass, PromptFormatter
-from abliteration.eval import (
+from meridian.data import FourClassData, PromptClass, PromptFormatter
+from meridian.eval import (
     KeywordRefusalJudge,
     LLMRefusalJudge,
     evasive_rate,
@@ -40,7 +40,7 @@ from abliteration.eval import (
     llm_refusal_rate,
     refusal_rate,
 )
-from abliteration.models import load_model
+from meridian.models import load_model
 
 BASE_ID = "Qwen/Qwen2.5-3B-Instruct"
 ABL_DIR = "artifacts/out-3b-abl"

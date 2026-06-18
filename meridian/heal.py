@@ -96,7 +96,7 @@ def heal(config: HealConfig):
 
     Dépendances optionnelles : `peft` (LoRA) + `transformers`. Lève une RuntimeError claire si
     absentes. À lancer UNIQUEMENT si l'éval montre un effondrement agentique résiduel après
-    abliteration préservante. Ré-évaluer ensuite l'agentique (abliteration.eval).
+    abliteration préservante. Ré-évaluer ensuite l'agentique (meridian.eval).
     """
     try:
         import torch

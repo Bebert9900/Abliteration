@@ -14,15 +14,15 @@ from toymodel import (
     make_model,
 )
 
-from abliteration.circuits.attribution import (
+from meridian.circuits.attribution import (
     ATTRIBUTION_CAVEAT,
     AttributionResult,
     aggregate_attribution,
     agreement_with_exact,
     attribution_patching,
 )
-from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
-from abliteration.circuits.patching import RefusalMetric, necessity
+from meridian.circuits.backend import Component, ComponentKind, TorchHookBackend
+from meridian.circuits.patching import RefusalMetric, necessity
 
 CAUSAL = Component(ComponentKind.ATTN_HEAD, 0, 0)
 NOISE = Component(ComponentKind.ATTN_HEAD, 0, 1)

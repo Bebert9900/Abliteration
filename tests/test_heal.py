@@ -2,7 +2,7 @@
 
 import pytest
 
-from abliteration.heal import HealConfig, format_example, heal, iter_training_examples, load_traces
+from meridian.heal import HealConfig, format_example, heal, iter_training_examples, load_traces
 
 
 def test_load_traces_accepts_both_schemas(tmp_path):

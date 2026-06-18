@@ -1,7 +1,7 @@
 """Test du sélecteur de métrique lm-eval (extraction de la métrique phare du dict de résultats)."""
 import pytest
 
-from abliteration.eval.benchmarks import _pick_metric, available_benchmarks, run_benchmark
+from meridian.eval.benchmarks import _pick_metric, available_benchmarks, run_benchmark
 
 
 def test_pick_metric_prefers_named_metric():

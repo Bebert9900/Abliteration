@@ -8,8 +8,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from abliteration.data.classes import PromptClass
-from abliteration.data.dataset import Prompt, _class_seed, split_holdout
+from meridian.data.classes import PromptClass
+from meridian.data.dataset import Prompt, _class_seed, split_holdout
 
 
 def test_class_seed_is_stable_constant():
@@ -23,8 +23,8 @@ def test_class_seed_is_stable_constant():
 def test_class_seed_deterministic_across_processes():
     # Relance un interpréteur FRAIS (PYTHONHASHSEED par défaut = randomisé) et compare.
     code = (
-        "from abliteration.data.classes import PromptClass;"
-        "from abliteration.data.dataset import _class_seed;"
+        "from meridian.data.classes import PromptClass;"
+        "from meridian.data.dataset import _class_seed;"
         "print(','.join(str(_class_seed(0,c)) for c in PromptClass))"
     )
     runs = []

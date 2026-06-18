@@ -1,7 +1,7 @@
 [project]
-name = "abliteration"
+name = "meridian"
 version = "0.1.0"
-description = "Outil d'abliteration de LLM préservant négation logique et capacités agentiques"
+description = "Meridian : cartographie et monitoring des directions internes d'un LLM (suivi de fine-tuning, atlas de représentations, ablation dirigée préservante)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -19,19 +19,19 @@ dependencies = [
 optimize = ["optuna"]
 quant = ["bitsandbytes"]          # mesure uniquement, jamais pour livrer des poids
 eval = ["lm-eval"]                # MMLU/GSM8K/BBH/GPQA/IFEval (à valider sur py3.14)
-heal = ["peft"]                   # LoRA SFT de récupération agentique (abliteration.heal)
+heal = ["peft"]                   # LoRA SFT de récupération agentique (meridian.heal)
 dev = ["pytest>=8", "ruff>=0.6"]
 
-# Point d'entrée console : `abliterate <sous-commande>` une fois `pip install -e .` fait.
+# Point d'entrée console : `meridian <sous-commande>` une fois `pip install -e .` fait.
 [project.scripts]
-abliterate = "abliteration.cli:main"
+meridian = "meridian.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["abliteration"]
+packages = ["meridian"]
 
 [tool.ruff]
 line-length = 110

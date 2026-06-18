@@ -21,8 +21,8 @@ import torch
 
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))  # repo root sur sys.path
 
-from abliteration.data import FourClassData, PromptClass, PromptFormatter
-from abliteration.eval import (
+from meridian.data import FourClassData, PromptClass, PromptFormatter
+from meridian.eval import (
     KeywordRefusalJudge,
     agentic_score,
     degeneracy_rate,
@@ -39,8 +39,8 @@ from abliteration.eval import (
     refusal_rate,
     schema_valid,
 )
-from abliteration.eval.refusal import is_degenerate
-from abliteration.models import load_model
+from meridian.eval.refusal import is_degenerate
+from meridian.models import load_model
 
 BASE = "Qwen/Qwen2.5-3B-Instruct"
 MODELS = [("preserving", "artifacts/out-3b-abl"), ("npb", "artifacts/out-3b-npb")]

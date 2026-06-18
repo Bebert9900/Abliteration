@@ -9,8 +9,8 @@ import torch
 from toymodel import ids as _ids
 from toymodel import make_model
 
-from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
-from abliteration.circuits.dla import (
+from meridian.circuits.backend import Component, ComponentKind, TorchHookBackend
+from meridian.circuits.dla import (
     CORRELATIONAL_CAVEAT,
     DLAResult,
     direct_logit_attribution,

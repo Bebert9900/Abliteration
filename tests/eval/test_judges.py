@@ -1,5 +1,5 @@
 """Tests des juges automatiques de l'axe préservation (négation / sycophantie)."""
-from abliteration.eval import is_sycophantic, negates_correctly
+from meridian.eval import is_sycophantic, negates_correctly
 
 
 def test_negates_correctly_detects_refutation():

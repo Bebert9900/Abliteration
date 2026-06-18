@@ -1,8 +1,8 @@
 """Tests de l'objectif composite et du checkpoint resume-safe."""
 import pytest
 
-from abliteration.eval import EvalReport
-from abliteration.optimize import (
+from meridian.eval import EvalReport
+from meridian.optimize import (
     Lambdas,
     best_trial,
     build_objective,

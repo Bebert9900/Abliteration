@@ -1,7 +1,7 @@
 """Tests KL : scalaire, par position, et diagnostic (max/p95/top positions)."""
 import torch
 
-from abliteration.eval import kl_diagnostic, kl_divergence, per_token_kl
+from meridian.eval import kl_diagnostic, kl_divergence, per_token_kl
 
 
 def test_identical_logits_have_zero_kl():

@@ -16,8 +16,8 @@ from toymodel import (
     harmless_ids,
 )
 
-from abliteration.circuits.backend import Component, ComponentKind, TorchHookBackend
-from abliteration.circuits.patching import (
+from meridian.circuits.backend import Component, ComponentKind, TorchHookBackend
+from meridian.circuits.patching import (
     CausalVerdict,
     RefusalMetric,
     necessity,
@@ -128,8 +128,8 @@ def test_targeted_patch_only_changes_last_token():
     import torch as _t
     from toymodel import make_model
 
-    from abliteration.circuits.backend import TorchHookBackend
-    from abliteration.circuits.patching import targeted_patch_value
+    from meridian.circuits.backend import TorchHookBackend
+    from meridian.circuits.patching import targeted_patch_value
 
     be = TorchHookBackend(make_model(0))
     target_ids = _t.tensor([[1, 5, 3, 9]])
@@ -154,8 +154,8 @@ def test_targeted_patch_handles_unequal_lengths():
     import torch as _t
     from toymodel import make_model
 
-    from abliteration.circuits.backend import TorchHookBackend
-    from abliteration.circuits.patching import targeted_patch_value
+    from meridian.circuits.backend import TorchHookBackend
+    from meridian.circuits.patching import targeted_patch_value
 
     be = TorchHookBackend(make_model(0))
     tcache = be.run_with_cache(_t.tensor([[1, 5, 3, 9]]))      # longueur 4

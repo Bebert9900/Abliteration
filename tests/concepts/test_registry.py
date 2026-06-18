@@ -1,7 +1,7 @@
 """Tests du registre de concepts et du chargement ad hoc."""
 import pytest
 
-from abliteration.concepts import (
+from meridian.concepts import (
     available_concepts,
     load_concept,
     load_concept_from_files,

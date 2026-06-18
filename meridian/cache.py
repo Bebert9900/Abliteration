@@ -20,11 +20,11 @@ import torch
 
 
 def default_cache_dir() -> Path:
-    """Dossier de cache : $ABLITERATION_CACHE, sinon ~/.cache/abliteration."""
-    env = os.environ.get("ABLITERATION_CACHE")
+    """Dossier de cache : $MERIDIAN_CACHE, sinon ~/.cache/meridian."""
+    env = os.environ.get("MERIDIAN_CACHE")
     if env:
         return Path(env)
-    return Path.home() / ".cache" / "abliteration"
+    return Path.home() / ".cache" / "meridian"
 
 
 def make_key(*parts) -> str:

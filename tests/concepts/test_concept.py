@@ -2,8 +2,8 @@
 import pytest
 import torch
 
-from abliteration.concepts import Concept, direction_from_means
-from abliteration.concepts.concept import ConceptDirection, concept_direction
+from meridian.concepts import Concept, direction_from_means
+from meridian.concepts.concept import ConceptDirection, concept_direction
 
 
 def test_direction_from_means_is_unit_and_matches_normalized_diff():
@@ -18,8 +18,8 @@ def test_direction_from_means_is_unit_and_matches_normalized_diff():
 def test_direction_equivalence_with_legacy_refusal():
     # ÉQUIVALENCE : la direction du concept refusal == Directions.refusal de l'ancien chemin,
     # puisque les deux calculent normalize(μ_harmful − μ_harmless). Preuve sans modèle.
-    from abliteration.data import PromptClass
-    from abliteration.directions import compute_directions
+    from meridian.data import PromptClass
+    from meridian.directions import compute_directions
 
     torch.manual_seed(0)
     harmful = torch.randn(2, 5)

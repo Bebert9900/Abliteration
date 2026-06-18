@@ -1,7 +1,7 @@
 """Tests de collecte d'activations : pooling dernier token + moyenne par couche."""
 import torch
 
-from abliteration.directions import (
+from meridian.directions import (
     collect_means,
     collect_per_example_activations,
     pooled_last_token,

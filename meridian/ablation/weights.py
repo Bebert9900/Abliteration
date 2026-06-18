@@ -14,7 +14,7 @@ import logging
 
 import torch
 
-from abliteration.models import ArchAdapter, WriteKind
+from meridian.models import ArchAdapter, WriteKind
 
 log = logging.getLogger(__name__)
 

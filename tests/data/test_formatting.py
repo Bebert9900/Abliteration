@@ -1,7 +1,7 @@
 """Tests de la mise en forme : chat template, padding à gauche, index du dernier token."""
 import torch
 
-from abliteration.data import PromptFormatter, last_token_index
+from meridian.data import PromptFormatter, last_token_index
 
 
 class FakeTokenizer:
